@@ -1,9 +1,12 @@
 package checkawscloudwatchlogsinsights
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -71,7 +74,85 @@ func (p *awsCWLogsInsightsPlugin) checkCount(count int) *checkers.Checker {
 }
 
 func (p *awsCWLogsInsightsPlugin) collectCount() (int, error) {
-	return 3, nil
+	queryID, err := p.startQuery()
+	if err != nil {
+		return 0, fmt.Errorf("failed to start query: %w", err)
+	}
+	// XXX implement proper wait & retry logic
+	time.Sleep(10 * time.Second)
+	res, _, err := p.getQueryResults(queryID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get query results: %w", err)
+	}
+	return extractCount(res)
+}
+
+// QueryLimit is limit for StartQuery
+const QueryLimit = 100
+
+// startQuery calls cloudwatchlogs.StartQuery()
+// returns (queryId, error)
+func (p *awsCWLogsInsightsPlugin) startQuery() (*string, error) {
+	now := time.Now()
+	endTime := aws.Int64(now.Unix())
+	startTime := aws.Int64(now.Add(-1 * time.Minute).Unix())
+	q, err := p.Service.StartQuery(&cloudwatchlogs.StartQueryInput{
+		EndTime:       endTime,
+		StartTime:     startTime,
+		LogGroupNames: aws.StringSlice(p.LogGroupNames),
+		QueryString:   aws.String(p.Query),
+		Limit:         aws.Int64(QueryLimit),
+	})
+	if q == nil {
+		return nil, err
+	}
+	return q.QueryId, err
+}
+
+// getQueryResults calls cloudwatchlogs.GetQueryResults()
+// returns (results, finished, error)
+// if finished is true, the query is not finished (scheduled or running).
+// otherwise the query is finished (complete, failed, cancelled)
+func (p *awsCWLogsInsightsPlugin) getQueryResults(queryID *string) ([][]*cloudwatchlogs.ResultField, bool, error) {
+	res, err := p.Service.GetQueryResults(&cloudwatchlogs.GetQueryResultsInput{
+		QueryId: queryID,
+	})
+	if err != nil {
+		return nil, false, err
+	}
+	if res == nil || res.Status == nil {
+		return nil, false, errors.New("failed to get response")
+	}
+	finished := false
+	switch *(res.Status) {
+	case cloudwatchlogs.QueryStatusComplete:
+		finished = true
+	case cloudwatchlogs.QueryStatusFailed:
+		finished = true
+	case cloudwatchlogs.QueryStatusCancelled:
+		finished = true
+	}
+
+	// XXX Do we need Statistics?
+	return res.Results, finished, err
+}
+
+// extractCount extracts value from given response.
+// the response must have single record, and the record must have only one field and its content must be parsable as number.
+func extractCount(res [][]*cloudwatchlogs.ResultField) (int, error) {
+	if len(res) != 1 {
+		return 0, fmt.Errorf("unexpected response size, expected %d but got %d", 1, len(res))
+	}
+	record := res[0]
+	if len(record) != 1 || record[0] == nil || record[0].Value == nil {
+		return 0, fmt.Errorf("Unexpected response, %#v", record)
+	}
+	cntStr := *(record[0].Value)
+	cnt64, err := strconv.ParseInt(cntStr, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return int(cnt64), nil
 }
 
 func (p *awsCWLogsInsightsPlugin) runWithoutContent() *checkers.Checker {
