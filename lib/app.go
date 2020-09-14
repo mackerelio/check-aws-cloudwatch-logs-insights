@@ -124,11 +124,7 @@ func (p *awsCWLogsInsightsPlugin) getQueryResults(queryID *string) ([][]*cloudwa
 	}
 	finished := false
 	switch *(res.Status) {
-	case cloudwatchlogs.QueryStatusComplete:
-		finished = true
-	case cloudwatchlogs.QueryStatusFailed:
-		finished = true
-	case cloudwatchlogs.QueryStatusCancelled:
+	case cloudwatchlogs.QueryStatusComplete, cloudwatchlogs.QueryStatusFailed, cloudwatchlogs.QueryStatusCancelled:
 		finished = true
 	}
 
