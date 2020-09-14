@@ -1,11 +1,13 @@
 package checkawscloudwatchlogsinsights
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
+	"github.com/aws/aws-sdk-go/service/cloudwatchlogs/cloudwatchlogsiface"
 	"github.com/mackerelio/checkers"
 )
 
@@ -177,6 +179,138 @@ func Test_awsCWLogsInsightsPlugin_checkCount(t *testing.T) {
 			}
 			if got := p.checkCount(tt.args.count); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("awsCWLogsInsightsPlugin.checkCount() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+type mockAWSCloudWatchLogsClient struct {
+	cloudwatchlogsiface.CloudWatchLogsAPI
+	getQueryResultsOutputs map[string]*cloudwatchlogs.GetQueryResultsOutput
+}
+
+func (c *mockAWSCloudWatchLogsClient) GetQueryResults(input *cloudwatchlogs.GetQueryResultsInput) (*cloudwatchlogs.GetQueryResultsOutput, error) {
+	if input.QueryId == nil {
+		return c.getQueryResultsOutputs[""], nil
+	}
+	if out, ok := c.getQueryResultsOutputs[*input.QueryId]; ok {
+		return out, nil
+	}
+	return nil, errors.New("invalid QueryId")
+}
+
+func Test_awsCWLogsInsightsPlugin_getQueryResults(t *testing.T) {
+	successRes := [][]*cloudwatchlogs.ResultField{
+		{
+			&cloudwatchlogs.ResultField{
+				Field: aws.String("this-is-complete!"),
+			},
+		},
+	}
+	dummySvc := &mockAWSCloudWatchLogsClient{
+		getQueryResultsOutputs: map[string]*cloudwatchlogs.GetQueryResultsOutput{
+			"COMPLETED_ID": {
+				Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
+				Results: successRes,
+			},
+			"CANCELLED_ID": {
+				Status:  aws.String(cloudwatchlogs.QueryStatusCancelled),
+				Results: nil,
+			},
+			"FAILED_ID": {
+				Status:  aws.String(cloudwatchlogs.QueryStatusFailed),
+				Results: nil,
+			},
+			"SCHEDULED_ID": {
+				Status:  aws.String(cloudwatchlogs.QueryStatusScheduled),
+				Results: nil,
+			},
+			"RUNNING_ID": {
+				Status:  aws.String(cloudwatchlogs.QueryStatusRunning),
+				Results: nil,
+			},
+		},
+	}
+	type args struct {
+		queryID *string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    [][]*cloudwatchlogs.ResultField
+		want1   bool
+		wantErr bool
+	}{
+		{
+			name: "will return results when completed",
+			args: args{
+				queryID: aws.String("COMPLETED_ID"),
+			},
+			want:    successRes,
+			want1:   true,
+			wantErr: false,
+		},
+		{
+			name: "will return finished: true when failed",
+			args: args{
+				queryID: aws.String("FAILED_ID"),
+			},
+			want:    nil,
+			want1:   true,
+			wantErr: false,
+		},
+		{
+			name: "will return finished: true when cancelled",
+			args: args{
+				queryID: aws.String("CANCELLED_ID"),
+			},
+			want:    nil,
+			want1:   true,
+			wantErr: false,
+		},
+		{
+			name: "will return finished: false when scheduled",
+			args: args{
+				queryID: aws.String("SCHEDULED_ID"),
+			},
+			want:    nil,
+			want1:   false,
+			wantErr: false,
+		},
+		{
+			name: "will return finished: false when running",
+			args: args{
+				queryID: aws.String("RUNNING_ID"),
+			},
+			want:    nil,
+			want1:   false,
+			wantErr: false,
+		},
+		{
+			name: "will return err when API errors",
+			args: args{
+				queryID: aws.String("ERROR_ID"),
+			},
+			want:    nil,
+			want1:   false,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &awsCWLogsInsightsPlugin{
+				Service: dummySvc,
+			}
+			got, got1, err := p.getQueryResults(tt.args.queryID)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("awsCWLogsInsightsPlugin.getQueryResults() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("awsCWLogsInsightsPlugin.getQueryResults() got = %v, want %v", got, tt.want)
+			}
+			if got1 != tt.want1 {
+				t.Errorf("awsCWLogsInsightsPlugin.getQueryResults() got1 = %v, want %v", got1, tt.want1)
 			}
 		})
 	}
