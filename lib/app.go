@@ -74,7 +74,9 @@ func (p *awsCWLogsInsightsPlugin) checkCount(count int) *checkers.Checker {
 }
 
 func (p *awsCWLogsInsightsPlugin) collectCount() (int, error) {
-	queryID, err := p.startQuery()
+	endTime := time.Now()
+	startTime := endTime.Add(-2 * time.Minute)
+	queryID, err := p.startQuery(startTime, endTime)
 	if err != nil {
 		return 0, fmt.Errorf("failed to start query: %w", err)
 	}
@@ -92,13 +94,10 @@ const QueryLimit = 100
 
 // startQuery calls cloudwatchlogs.StartQuery()
 // returns (queryId, error)
-func (p *awsCWLogsInsightsPlugin) startQuery() (*string, error) {
-	now := time.Now()
-	endTime := aws.Int64(now.Unix())
-	startTime := aws.Int64(now.Add(-1 * time.Minute).Unix())
+func (p *awsCWLogsInsightsPlugin) startQuery(startTime, endTime time.Time) (*string, error) {
 	q, err := p.Service.StartQuery(&cloudwatchlogs.StartQueryInput{
-		EndTime:       endTime,
-		StartTime:     startTime,
+		EndTime:       aws.Int64(endTime.Unix()),
+		StartTime:     aws.Int64(startTime.Unix()),
 		LogGroupNames: aws.StringSlice(p.LogGroupNames),
 		QueryString:   aws.String(p.Query),
 		Limit:         aws.Int64(QueryLimit),
