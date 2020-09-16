@@ -45,13 +45,13 @@ Please note that using other than `parse`, `sort`, or `filter` commands will cau
 Here are some examples.
 
 ```shell
-check-aws-cloudwatch-logs-insights --filter='filter @message =~ /error/' # will search logs which contains "error"
+check-aws-cloudwatch-logs-insights --filter='filter @message =~ /error/' ... # will search logs which contains "error"
 ```
 
 ```shell
-check-aws-cloudwatch-logs-insights --filter='filter level = "error"' # will search JSON logs which has "level" fields and the vaule contains "error"
+check-aws-cloudwatch-logs-insights --filter='filter level = "error"' ... # will search JSON logs which has "level" fields and the vaule contains "error"
 ```
 
 ```shell
-check-aws-cloudwatch-logs-insights --filter='filter @logStream = "app-container" | filter @message =~ /ohno/' # will search logs which contains "ohno" and its logStream name contains "app-container"
+check-aws-cloudwatch-logs-insights --filter='filter @logStream = "app-container" | filter @message =~ /ohno/' ... # will search logs which contains "ohno" and its logStream name contains "app-container"
 ```
