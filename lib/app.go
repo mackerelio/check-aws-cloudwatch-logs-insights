@@ -123,7 +123,7 @@ func (p *awsCWLogsInsightsPlugin) getQueryResults(queryID *string) ([][]*cloudwa
 		return nil, false, errors.New("failed to get response")
 	}
 	finished := false
-	switch *(res.Status) {
+	switch *res.Status {
 	case cloudwatchlogs.QueryStatusComplete, cloudwatchlogs.QueryStatusFailed, cloudwatchlogs.QueryStatusCancelled:
 		finished = true
 	}
@@ -142,7 +142,7 @@ func extractCount(res [][]*cloudwatchlogs.ResultField) (int, error) {
 	if len(record) == 0 || record[0] == nil || record[0].Value == nil {
 		return 0, fmt.Errorf("unknown format: %#v", record)
 	}
-	cntStr := *(record[0].Value)
+	cntStr := *record[0].Value
 	return strconv.Atoi(cntStr)
 }
 
