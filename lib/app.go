@@ -149,7 +149,7 @@ func extractCount(res [][]*cloudwatchlogs.ResultField) (int, error) {
 func (p *awsCWLogsInsightsPlugin) runWithoutContent() *checkers.Checker {
 	count, err := p.collectCount()
 	if err != nil {
-		return checkers.Unknown(fmt.Sprint(err))
+		return checkers.Unknown(err.Error())
 	}
 	return p.checkCount(count)
 }
@@ -176,7 +176,7 @@ func run(args []string) *checkers.Checker {
 	}
 	p, err := newCWLogsInsightsPlugin(opts, args)
 	if err != nil {
-		return checkers.Unknown(fmt.Sprint(err))
+		return checkers.Unknown(err.Error())
 	}
 	return p.run()
 }
