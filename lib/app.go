@@ -143,11 +143,7 @@ func extractCount(res [][]*cloudwatchlogs.ResultField) (int, error) {
 		return 0, fmt.Errorf("Unexpected response, %#v", record)
 	}
 	cntStr := *(record[0].Value)
-	cnt64, err := strconv.ParseInt(cntStr, 10, 32)
-	if err != nil {
-		return 0, err
-	}
-	return int(cnt64), nil
+	return strconv.Atoi(cntStr)
 }
 
 func (p *awsCWLogsInsightsPlugin) runWithoutContent() *checkers.Checker {
