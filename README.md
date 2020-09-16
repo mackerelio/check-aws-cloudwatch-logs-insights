@@ -33,7 +33,7 @@ command = ["check-aws-cloudwatch-logs-insights", "--log-group-name", "/aws/lambd
   -r, --return                                           Output matched lines (TODO: not implemented yet)
 ```
 
-The plugin uses the instance profile if possible, or you can configure `AWS_PROFILE` or `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables in the `env` settings.
+The plugin uses the instance profile if possible, or you can configure `AWS_PROFILE` or `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` and `AWS_REGION` environment variables in the `env` settings.
 
 You can specify `--log-group-name` options multiple times, like `--log-group-name=/some/log/group --log-group-name=/another/log/group`.
 
