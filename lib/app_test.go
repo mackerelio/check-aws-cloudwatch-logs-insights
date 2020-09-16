@@ -36,42 +36,6 @@ func Test_extractCount(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "errors when res has multiple lines",
-			args: args{
-				res: [][]*cloudwatchlogs.ResultField{
-					{
-						&cloudwatchlogs.ResultField{
-							Value: aws.String("2"),
-						},
-					},
-					{
-						&cloudwatchlogs.ResultField{
-							Value: aws.String("3"),
-						},
-					},
-				},
-			},
-			want:    0,
-			wantErr: true,
-		},
-		{
-			name: "errors when res has multiple fields",
-			args: args{
-				res: [][]*cloudwatchlogs.ResultField{
-					{
-						&cloudwatchlogs.ResultField{
-							Value: aws.String("2"),
-						},
-						&cloudwatchlogs.ResultField{
-							Value: aws.String("3"),
-						},
-					},
-				},
-			},
-			want:    0,
-			wantErr: true,
-		},
-		{
 			name: "errors when res has a empty line",
 			args: args{
 				res: [][]*cloudwatchlogs.ResultField{

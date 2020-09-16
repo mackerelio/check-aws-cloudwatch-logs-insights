@@ -132,15 +132,15 @@ func (p *awsCWLogsInsightsPlugin) getQueryResults(queryID *string) ([][]*cloudwa
 	return res.Results, finished, err
 }
 
-// extractCount extracts value from given response.
-// the response must have single record, and the record must have only one field and its content must be parsable as number.
+// extractCount extracts integer value from [0][0] of given response.
+// therefore, res[0][0] must be accessible and parsable as number.
 func extractCount(res [][]*cloudwatchlogs.ResultField) (int, error) {
-	if len(res) != 1 {
-		return 0, fmt.Errorf("unexpected response size, expected %d but got %d", 1, len(res))
+	if len(res) == 0 {
+		return 0, errors.New("result is empty")
 	}
 	record := res[0]
-	if len(record) != 1 || record[0] == nil || record[0].Value == nil {
-		return 0, fmt.Errorf("Unexpected response, %#v", record)
+	if len(record) == 0 || record[0] == nil || record[0].Value == nil {
+		return 0, fmt.Errorf("unknown format: %#v", record)
 	}
 	cntStr := *(record[0].Value)
 	return strconv.Atoi(cntStr)
