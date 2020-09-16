@@ -102,10 +102,10 @@ func (p *awsCWLogsInsightsPlugin) startQuery(startTime, endTime time.Time) (*str
 		QueryString:   aws.String(p.Query),
 		Limit:         aws.Int64(QueryLimit),
 	})
-	if q == nil {
+	if err != nil {
 		return nil, err
 	}
-	return q.QueryId, err
+	return q.QueryId, nil
 }
 
 // getQueryResults calls cloudwatchlogs.GetQueryResults()
