@@ -110,7 +110,7 @@ func (p *awsCWLogsInsightsPlugin) startQuery(startTime, endTime time.Time) (*str
 
 // getQueryResults calls cloudwatchlogs.GetQueryResults()
 // returns (results, finished, error)
-// if finished is true, the query is not finished (scheduled or running).
+// if finished is false, the query is not finished (scheduled or running).
 // otherwise the query is finished (complete, failed, cancelled)
 func (p *awsCWLogsInsightsPlugin) getQueryResults(queryID *string) ([][]*cloudwatchlogs.ResultField, bool, error) {
 	res, err := p.Service.GetQueryResults(&cloudwatchlogs.GetQueryResultsInput{
