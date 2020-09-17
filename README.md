@@ -50,7 +50,7 @@ check-aws-cloudwatch-logs-insights --filter='filter @message =~ /error/' ... # w
 ```
 
 ```shell
-check-aws-cloudwatch-logs-insights --filter='filter level = "error"' ... # will search JSON logs which has "level" fields and the vaule contains "error"
+check-aws-cloudwatch-logs-insights --filter='filter level = "error"' ... # will search JSON logs which has "level" fields and the value contains "error"
 ```
 
 ```shell
