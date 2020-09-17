@@ -115,7 +115,11 @@ func (p *awsCWLogsInsightsPlugin) collectCount(ctx context.Context) (int, error)
 				}
 				return extractCount(res)
 			}
-			logger.Debugf("Query not finished. Will wait a while...")
+			if err != nil {
+				logger.Errorf("GetQueryResults failed (will retry): %v", err)
+			} else {
+				logger.Debugf("Query not finished. Will wait a while...")
+			}
 		}
 	}
 }
