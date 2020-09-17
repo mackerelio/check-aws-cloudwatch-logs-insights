@@ -1,6 +1,7 @@
 package checkawscloudwatchlogsinsights
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -73,20 +74,31 @@ func (p *awsCWLogsInsightsPlugin) checkCount(count int) *checkers.Checker {
 	return checkers.NewChecker(status, msg)
 }
 
-func (p *awsCWLogsInsightsPlugin) collectCount() (int, error) {
+func (p *awsCWLogsInsightsPlugin) collectCount(ctx context.Context) (int, error) {
 	endTime := time.Now()
 	startTime := endTime.Add(-2 * time.Minute)
 	queryID, err := p.startQuery(startTime, endTime)
 	if err != nil {
 		return 0, fmt.Errorf("failed to start query: %w", err)
 	}
-	// XXX implement proper wait & retry logic
-	time.Sleep(10 * time.Second)
-	res, _, err := p.getQueryResults(queryID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get query results: %w", err)
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			// TODO we should cancel query
+			return 0, ctx.Err()
+		case <-ticker.C:
+			fmt.Println("polling...", time.Now())
+			res, finished, err := p.getQueryResults(queryID)
+			if finished {
+				if err != nil {
+					return 0, fmt.Errorf("failed to get query results: %w", err)
+				}
+				return extractCount(res)
+			}
+		}
 	}
-	return extractCount(res)
 }
 
 // QueryLimit is limit for StartQuery
@@ -147,7 +159,8 @@ func extractCount(res [][]*cloudwatchlogs.ResultField) (int, error) {
 }
 
 func (p *awsCWLogsInsightsPlugin) runWithoutContent() *checkers.Checker {
-	count, err := p.collectCount()
+	ctx := context.Background()
+	count, err := p.collectCount(ctx)
 	if err != nil {
 		return checkers.Unknown(err.Error())
 	}
