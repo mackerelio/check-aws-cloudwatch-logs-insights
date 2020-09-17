@@ -41,7 +41,7 @@ You can specify `--log-group-name` options multiple times, like `--log-group-nam
 TODO: not implemented yet!!!
 The expression specified by `--filter` will be used in the query for CloudWatch Logs Insights.  You can use one `filter` query command, or multiple query commands combined with `|`.  The query syntax is described in https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CWL_QuerySyntax.html.
 
-Please note that using other than `parse`, `sort`, or `filter` commands will cause unexpected results. 
+Please note that using other than `parse`, `sort`, or `filter` commands will cause unexpected results.
 
 Here are some examples.
 
