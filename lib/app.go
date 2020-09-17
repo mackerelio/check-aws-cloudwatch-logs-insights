@@ -221,13 +221,24 @@ func run(args []string) *checkers.Checker {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// on termination, call cancel
-	sig := make(chan os.Signal)
-	signal.Notify(sig, syscall.SIGTERM, os.Interrupt)
+	resCh := make(chan *checkers.Checker)
+	sigCh := make(chan os.Signal)
+	signal.Notify(sigCh, syscall.SIGTERM, os.Interrupt)
 	go func() {
-		<-sig
-		cancel()
-		// TODO should we trap signal again and allow force shutdown?
+		resCh <- p.run(ctx)
 	}()
-
-	return p.run(ctx)
+	select {
+	case res := <-resCh:
+		cancel() // avoid context leak
+		return res
+	case <-sigCh:
+		cancel()
+		select {
+		case res := <-resCh:
+			return res
+		case <-sigCh:
+			logger.Errorf("Received signal again. force shutdown.")
+			return checkers.Unknown("terminated by signal")
+		}
+	}
 }
