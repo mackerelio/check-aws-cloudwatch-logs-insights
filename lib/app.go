@@ -167,6 +167,27 @@ func (p *awsCWLogsInsightsPlugin) getQueryResults(queryID *string) ([][]*cloudwa
 	return res.Results, finished, err
 }
 
+// parseResult parses *cloudwatchlogs.GetQueryResultsOutput for checking logs
+// returns (matchedLogCount, queryHasFinished, error)
+func parseResult(res *cloudwatchlogs.GetQueryResultsOutput) (int, bool, error) {
+	if res == nil || res.Status == nil || res.Statistics == nil {
+		return 0, false, fmt.Errorf("unexpected response, %v", res)
+	}
+
+	finished := false
+	switch *res.Status {
+	case cloudwatchlogs.QueryStatusComplete, cloudwatchlogs.QueryStatusFailed, cloudwatchlogs.QueryStatusCancelled:
+		finished = true
+	}
+	if !finished {
+		return 0, false, nil
+	}
+
+	count := int(*res.Statistics.RecordsMatched)
+
+	return count, finished, nil
+}
+
 // stopQuery stops given query by cloudwatchlogs.StopQuery()
 func (p *awsCWLogsInsightsPlugin) stopQuery(queryID *string) error {
 	_, err := p.Service.StopQuery(&cloudwatchlogs.StopQueryInput{
