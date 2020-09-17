@@ -221,8 +221,8 @@ func run(args []string) *checkers.Checker {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// on termination, call cancel
-	resCh := make(chan *checkers.Checker)
-	sigCh := make(chan os.Signal)
+	resCh := make(chan *checkers.Checker, 1)
+	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGTERM, os.Interrupt)
 	go func() {
 		resCh <- p.run(ctx)
