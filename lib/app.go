@@ -158,8 +158,7 @@ func extractCount(res [][]*cloudwatchlogs.ResultField) (int, error) {
 	return strconv.Atoi(cntStr)
 }
 
-func (p *awsCWLogsInsightsPlugin) runWithoutContent() *checkers.Checker {
-	ctx := context.Background()
+func (p *awsCWLogsInsightsPlugin) runWithoutContent(ctx context.Context) *checkers.Checker {
 	count, err := p.collectCount(ctx)
 	if err != nil {
 		return checkers.Unknown(err.Error())
@@ -167,9 +166,9 @@ func (p *awsCWLogsInsightsPlugin) runWithoutContent() *checkers.Checker {
 	return p.checkCount(count)
 }
 
-func (p *awsCWLogsInsightsPlugin) run() *checkers.Checker {
+func (p *awsCWLogsInsightsPlugin) run(ctx context.Context) *checkers.Checker {
 	if !p.ReturnContent {
-		return p.runWithoutContent()
+		return p.runWithoutContent(ctx)
 	}
 	panic("not implemented")
 }
@@ -191,5 +190,6 @@ func run(args []string) *checkers.Checker {
 	if err != nil {
 		return checkers.Unknown(err.Error())
 	}
-	return p.run()
+	ctx := context.Background()
+	return p.run(ctx)
 }
