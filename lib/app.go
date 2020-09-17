@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -86,8 +88,14 @@ func (p *awsCWLogsInsightsPlugin) collectCount(ctx context.Context) (int, error)
 	for {
 		select {
 		case <-ctx.Done():
-			// TODO we should cancel query
-			return 0, ctx.Err()
+			err := ctx.Err()
+			fmt.Println("send stopQuery")
+			// Cancel current query.
+			stopQueryErr := p.stopQuery(queryID)
+			if stopQueryErr != nil {
+				return 0, fmt.Errorf("execution cancelled (%v) and failed to stop the runnig query: %w", err, stopQueryErr)
+			}
+			return 0, err
 		case <-ticker.C:
 			fmt.Println("polling...", time.Now())
 			res, finished, err := p.getQueryResults(queryID)
@@ -144,6 +152,14 @@ func (p *awsCWLogsInsightsPlugin) getQueryResults(queryID *string) ([][]*cloudwa
 	return res.Results, finished, err
 }
 
+// stopQuery stops given query by cloudwatchlogs.StopQuery()
+func (p *awsCWLogsInsightsPlugin) stopQuery(queryID *string) error {
+	_, err := p.Service.StopQuery(&cloudwatchlogs.StopQueryInput{
+		QueryId: queryID,
+	})
+	return err
+}
+
 // extractCount extracts integer value from [0][0] of given response.
 // therefore, res[0][0] must be accessible and parsable as number.
 func extractCount(res [][]*cloudwatchlogs.ResultField) (int, error) {
@@ -190,6 +206,17 @@ func run(args []string) *checkers.Checker {
 	if err != nil {
 		return checkers.Unknown(err.Error())
 	}
-	ctx := context.Background()
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// on termination, call cancel
+	sig := make(chan os.Signal)
+	signal.Notify(sig, syscall.SIGTERM, os.Interrupt)
+	go func() {
+		<-sig
+		cancel()
+		// TODO should we trap signal again and allow force shutdown?
+	}()
+
 	return p.run(ctx)
 }
