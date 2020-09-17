@@ -17,8 +17,16 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs/cloudwatchlogsiface"
 	"github.com/jessevdk/go-flags"
 	"github.com/mackerelio/checkers"
+	"github.com/mackerelio/golib/logging"
 	"github.com/mackerelio/golib/pluginutil"
 )
+
+var logger *logging.Logger
+
+func init() {
+	logger = logging.GetLogger("checks.plugin.aws-cloudwatch-logs-insights")
+	logging.SetLogLevel(logging.DEBUG)
+}
 
 // copy from check-aws-cloudwatch-logs
 type logOpts struct {
@@ -89,22 +97,25 @@ func (p *awsCWLogsInsightsPlugin) collectCount(ctx context.Context) (int, error)
 		select {
 		case <-ctx.Done():
 			err := ctx.Err()
-			fmt.Println("send stopQuery")
 			// Cancel current query.
+			logger.Infof("execution cancelled. Will send StopQuery to stop the running query.")
 			stopQueryErr := p.stopQuery(queryID)
 			if stopQueryErr != nil {
 				return 0, fmt.Errorf("execution cancelled (%v) and failed to stop the runnig query: %w", err, stopQueryErr)
 			}
+			logger.Debugf("succeeded to cancel query")
 			return 0, err
 		case <-ticker.C:
-			fmt.Println("polling...", time.Now())
+			logger.Debugf("Try to GetQueryResults...")
 			res, finished, err := p.getQueryResults(queryID)
 			if finished {
+				logger.Debugf("Query finished! got result: %v", res)
 				if err != nil {
 					return 0, fmt.Errorf("failed to get query results: %w", err)
 				}
 				return extractCount(res)
 			}
+			logger.Debugf("Query not finished. Will wait a while...")
 		}
 	}
 }
