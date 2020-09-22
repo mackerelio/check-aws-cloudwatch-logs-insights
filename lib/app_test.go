@@ -163,118 +163,94 @@ func (c *mockAWSCloudWatchLogsClient) GetQueryResults(input *cloudwatchlogs.GetQ
 	return nil, errors.New("invalid QueryId")
 }
 
-func Test_awsCWLogsInsightsPlugin_getQueryResults(t *testing.T) {
-	successRes := [][]*cloudwatchlogs.ResultField{
+func Test_parseResult(t *testing.T) {
+	type args struct {
+		res *cloudwatchlogs.GetQueryResultsOutput
+	}
+	successResult := [][]*cloudwatchlogs.ResultField{
 		{
 			&cloudwatchlogs.ResultField{
-				Field: aws.String("this-is-complete!"),
+				Field: aws.String("@message"),
+				Value: aws.String("some-log"),
 			},
 		},
-	}
-	dummySvc := &mockAWSCloudWatchLogsClient{
-		getQueryResultsOutputs: map[string]*cloudwatchlogs.GetQueryResultsOutput{
-			"COMPLETED_ID": {
-				Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
-				Results: successRes,
-			},
-			"CANCELLED_ID": {
-				Status:  aws.String(cloudwatchlogs.QueryStatusCancelled),
-				Results: nil,
-			},
-			"FAILED_ID": {
-				Status:  aws.String(cloudwatchlogs.QueryStatusFailed),
-				Results: nil,
-			},
-			"SCHEDULED_ID": {
-				Status:  aws.String(cloudwatchlogs.QueryStatusScheduled),
-				Results: nil,
-			},
-			"RUNNING_ID": {
-				Status:  aws.String(cloudwatchlogs.QueryStatusRunning),
-				Results: nil,
-			},
-		},
-	}
-	type args struct {
-		queryID *string
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    [][]*cloudwatchlogs.ResultField
+		want    int
 		want1   bool
 		wantErr bool
 	}{
 		{
-			name: "will return results when completed",
+			name: "complete",
 			args: args{
-				queryID: aws.String("COMPLETED_ID"),
+				res: &cloudwatchlogs.GetQueryResultsOutput{
+					Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
+					Results: successResult,
+					Statistics: &cloudwatchlogs.QueryStatistics{
+						RecordsMatched: aws.Float64(25),
+					},
+				},
 			},
-			want:    successRes,
-			want1:   true,
+			want:    25,
+			want1:   true, // complete
 			wantErr: false,
 		},
 		{
-			name: "will return finished: true when failed",
+			name: "failed",
 			args: args{
-				queryID: aws.String("FAILED_ID"),
+				res: &cloudwatchlogs.GetQueryResultsOutput{
+					Status:     aws.String(cloudwatchlogs.QueryStatusFailed),
+					Results:    nil,
+					Statistics: &cloudwatchlogs.QueryStatistics{},
+				},
 			},
-			want:    nil,
-			want1:   true,
+			want:    0,
+			want1:   true, // failed
 			wantErr: false,
 		},
 		{
-			name: "will return finished: true when cancelled",
+			name: "cancelled",
 			args: args{
-				queryID: aws.String("CANCELLED_ID"),
+				res: &cloudwatchlogs.GetQueryResultsOutput{
+					Status:  aws.String(cloudwatchlogs.QueryStatusCancelled),
+					Results: nil,
+					Statistics: &cloudwatchlogs.QueryStatistics{
+						RecordsMatched: aws.Float64(25),
+					},
+				},
 			},
-			want:    nil,
-			want1:   true,
+			want:    25,
+			want1:   true, // cancelled
 			wantErr: false,
 		},
 		{
-			name: "will return finished: false when scheduled",
+			name: "running",
 			args: args{
-				queryID: aws.String("SCHEDULED_ID"),
+				res: &cloudwatchlogs.GetQueryResultsOutput{
+					Status:     aws.String(cloudwatchlogs.QueryStatusRunning),
+					Results:    nil,
+					Statistics: nil,
+				},
 			},
-			want:    nil,
-			want1:   false,
+			want:    0,
+			want1:   false, // running
 			wantErr: false,
-		},
-		{
-			name: "will return finished: false when running",
-			args: args{
-				queryID: aws.String("RUNNING_ID"),
-			},
-			want:    nil,
-			want1:   false,
-			wantErr: false,
-		},
-		{
-			name: "will return err when API errors",
-			args: args{
-				queryID: aws.String("ERROR_ID"),
-			},
-			want:    nil,
-			want1:   false,
-			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := &awsCWLogsInsightsPlugin{
-				Service: dummySvc,
-			}
-			got, got1, err := p.getQueryResults(tt.args.queryID)
+			got, got1, err := parseResult(tt.args.res)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("awsCWLogsInsightsPlugin.getQueryResults() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("awsCWLogsInsightsPlugin.parseResult() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("awsCWLogsInsightsPlugin.getQueryResults() got = %v, want %v", got, tt.want)
+			if got != tt.want {
+				t.Errorf("awsCWLogsInsightsPlugin.parseResult() got = %v, want %v", got, tt.want)
 			}
 			if got1 != tt.want1 {
-				t.Errorf("awsCWLogsInsightsPlugin.getQueryResults() got1 = %v, want %v", got1, tt.want1)
+				t.Errorf("awsCWLogsInsightsPlugin.parseResult() got1 = %v, want %v", got1, tt.want1)
 			}
 		})
 	}

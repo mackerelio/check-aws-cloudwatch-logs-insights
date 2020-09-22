@@ -107,19 +107,20 @@ func (p *awsCWLogsInsightsPlugin) collectCount(ctx context.Context) (int, error)
 			return 0, err
 		case <-ticker.C:
 			logger.Debugf("Try to GetQueryResults...")
-			res, finished, err := p.getQueryResults(queryID)
+			res, err := p.getQueryResults(queryID)
+			if err != nil {
+				logger.Warningf("GetQueryResults failed (will retry): %v", err)
+				continue
+			}
+			count, finished, err := parseResult(res)
 			if finished {
 				logger.Debugf("Query finished! got result: %v", res)
 				if err != nil {
 					return 0, fmt.Errorf("failed to get query results: %w", err)
 				}
-				return extractCount(res)
+				return count, err
 			}
-			if err != nil {
-				logger.Errorf("GetQueryResults failed (will retry): %v", err)
-			} else {
-				logger.Debugf("Query not finished. Will wait a while...")
-			}
+			logger.Debugf("Query not finished. Will wait a while...")
 		}
 	}
 }
@@ -144,33 +145,16 @@ func (p *awsCWLogsInsightsPlugin) startQuery(startTime, endTime time.Time) (*str
 }
 
 // getQueryResults calls cloudwatchlogs.GetQueryResults()
-// returns (results, finished, error)
-// if finished is false, the query is not finished (scheduled or running).
-// otherwise the query is finished (complete, failed, cancelled)
-func (p *awsCWLogsInsightsPlugin) getQueryResults(queryID *string) ([][]*cloudwatchlogs.ResultField, bool, error) {
-	res, err := p.Service.GetQueryResults(&cloudwatchlogs.GetQueryResultsInput{
+func (p *awsCWLogsInsightsPlugin) getQueryResults(queryID *string) (*cloudwatchlogs.GetQueryResultsOutput, error) {
+	return p.Service.GetQueryResults(&cloudwatchlogs.GetQueryResultsInput{
 		QueryId: queryID,
 	})
-	if err != nil {
-		return nil, false, err
-	}
-	if res == nil || res.Status == nil {
-		return nil, false, errors.New("failed to get response")
-	}
-	finished := false
-	switch *res.Status {
-	case cloudwatchlogs.QueryStatusComplete, cloudwatchlogs.QueryStatusFailed, cloudwatchlogs.QueryStatusCancelled:
-		finished = true
-	}
-
-	// XXX Do we need Statistics?
-	return res.Results, finished, err
 }
 
 // parseResult parses *cloudwatchlogs.GetQueryResultsOutput for checking logs
 // returns (matchedLogCount, queryHasFinished, error)
 func parseResult(res *cloudwatchlogs.GetQueryResultsOutput) (int, bool, error) {
-	if res == nil || res.Status == nil || res.Statistics == nil {
+	if res == nil || res.Status == nil {
 		return 0, false, fmt.Errorf("unexpected response, %v", res)
 	}
 
@@ -183,7 +167,10 @@ func parseResult(res *cloudwatchlogs.GetQueryResultsOutput) (int, bool, error) {
 		return 0, false, nil
 	}
 
-	count := int(*res.Statistics.RecordsMatched)
+	var count int
+	if res.Statistics != nil && res.Statistics.RecordsMatched != nil {
+		count = int(*res.Statistics.RecordsMatched)
+	}
 
 	return count, finished, nil
 }
