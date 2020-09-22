@@ -2,12 +2,10 @@ package checkawscloudwatchlogsinsights
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -181,20 +179,6 @@ func (p *awsCWLogsInsightsPlugin) stopQuery(queryID *string) error {
 		QueryId: queryID,
 	})
 	return err
-}
-
-// extractCount extracts integer value from [0][0] of given response.
-// therefore, res[0][0] must be accessible and parsable as number.
-func extractCount(res [][]*cloudwatchlogs.ResultField) (int, error) {
-	if len(res) == 0 {
-		return 0, errors.New("result is empty")
-	}
-	record := res[0]
-	if len(record) == 0 || record[0] == nil || record[0].Value == nil {
-		return 0, fmt.Errorf("unknown format: %#v", record)
-	}
-	cntStr := *record[0].Value
-	return strconv.Atoi(cntStr)
 }
 
 func (p *awsCWLogsInsightsPlugin) runWithoutContent(ctx context.Context) *checkers.Checker {
