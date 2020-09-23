@@ -150,27 +150,25 @@ func (p *awsCWLogsInsightsPlugin) getQueryResults(queryID *string) (*cloudwatchl
 }
 
 // parseResult parses *cloudwatchlogs.GetQueryResultsOutput for checking logs
-// returns (matchedLogCount, queryHasFinished, error)
-func parseResult(res *cloudwatchlogs.GetQueryResultsOutput) (int, bool, error) {
+func parseResult(res *cloudwatchlogs.GetQueryResultsOutput) (matchedLogCount int, queryHasFinished bool, err error) {
 	if res == nil || res.Status == nil {
-		return 0, false, fmt.Errorf("unexpected response, %v", res)
+		err = fmt.Errorf("unexpected response, %v", res)
+		return
 	}
 
-	finished := false
 	switch *res.Status {
 	case cloudwatchlogs.QueryStatusComplete, cloudwatchlogs.QueryStatusFailed, cloudwatchlogs.QueryStatusCancelled:
-		finished = true
+		queryHasFinished = true
 	}
-	if !finished {
-		return 0, false, nil
+	if !queryHasFinished {
+		return
 	}
 
-	var count int
 	if res.Statistics != nil && res.Statistics.RecordsMatched != nil {
-		count = int(*res.Statistics.RecordsMatched)
+		matchedLogCount = int(*res.Statistics.RecordsMatched)
 	}
 
-	return count, finished, nil
+	return
 }
 
 // stopQuery stops given query by cloudwatchlogs.StopQuery()
