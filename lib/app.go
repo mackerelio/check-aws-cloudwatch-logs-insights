@@ -82,12 +82,12 @@ func (p *awsCWLogsInsightsPlugin) checkCount(count int) *checkers.Checker {
 	return checkers.NewChecker(status, msg)
 }
 
-func (p *awsCWLogsInsightsPlugin) collectCount(ctx context.Context) (int, error) {
+func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context) (*ParsedQueryResult, error) {
 	endTime := time.Now()
 	startTime := endTime.Add(-2 * time.Minute)
 	queryID, err := p.startQuery(startTime, endTime)
 	if err != nil {
-		return 0, fmt.Errorf("failed to start query: %w", err)
+		return nil, fmt.Errorf("failed to start query: %w", err)
 	}
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
@@ -99,10 +99,10 @@ func (p *awsCWLogsInsightsPlugin) collectCount(ctx context.Context) (int, error)
 			logger.Infof("execution cancelled. Will send StopQuery to stop the running query.")
 			stopQueryErr := p.stopQuery(queryID)
 			if stopQueryErr != nil {
-				return 0, fmt.Errorf("execution cancelled (%v) and failed to stop the runnig query: %w", err, stopQueryErr)
+				return nil, fmt.Errorf("execution cancelled (%v) and failed to stop the runnig query: %w", err, stopQueryErr)
 			}
 			logger.Debugf("succeeded to cancel query")
-			return 0, err
+			return nil, err
 		case <-ticker.C:
 			logger.Debugf("Try to GetQueryResults...")
 			out, err := p.getQueryResults(queryID)
@@ -114,9 +114,9 @@ func (p *awsCWLogsInsightsPlugin) collectCount(ctx context.Context) (int, error)
 			if res.Finished {
 				logger.Debugf("Query finished! got result: %v", out)
 				if err != nil {
-					return 0, fmt.Errorf("failed to get query results: %w", err)
+					return nil, fmt.Errorf("failed to get query results: %w", err)
 				}
-				return res.MatchedCount, err
+				return res, err
 			}
 			logger.Debugf("Query not finished. Will wait a while...")
 		}
@@ -184,11 +184,11 @@ func (p *awsCWLogsInsightsPlugin) stopQuery(queryID *string) error {
 }
 
 func (p *awsCWLogsInsightsPlugin) runWithoutContent(ctx context.Context) *checkers.Checker {
-	count, err := p.collectCount(ctx)
+	count, err := p.searchLogs(ctx)
 	if err != nil {
 		return checkers.Unknown(err.Error())
 	}
-	return p.checkCount(count)
+	return p.checkCount(count.MatchedCount)
 }
 
 func (p *awsCWLogsInsightsPlugin) run(ctx context.Context) *checkers.Checker {
