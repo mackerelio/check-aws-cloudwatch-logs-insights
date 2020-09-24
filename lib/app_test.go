@@ -11,69 +11,106 @@ import (
 	"github.com/mackerelio/checkers"
 )
 
-func Test_awsCWLogsInsightsPlugin_checkCount(t *testing.T) {
+func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
+	type fields struct {
+		Service   cloudwatchlogsiface.CloudWatchLogsAPI
+		StateFile string
+		logOpts   *logOpts
+	}
 	type args struct {
-		count int
+		res *ParsedQueryResult
 	}
 	tests := []struct {
-		name    string
-		logOpts *logOpts
-		args    args
-		want    *checkers.Checker
+		name   string
+		fields fields
+		args   args
+		want   *checkers.Checker
 	}{
 		{
 			name: "will return CRITICAL when count > CriticalOver",
-			logOpts: &logOpts{
-				CriticalOver: 4,
-				WarningOver:  2,
+			fields: fields{
+				logOpts: &logOpts{
+					CriticalOver: 4,
+					WarningOver:  2,
+				},
 			},
-			args: args{5},
+			args: args{
+				res: &ParsedQueryResult{
+					MatchedCount: 5,
+				},
+			},
 			want: checkers.Critical("5 > 4 messages"),
 		},
 		{
 			name: "will return WARNING when CriticalOver > count > WarningOver",
-			logOpts: &logOpts{
-				CriticalOver: 4,
-				WarningOver:  2,
+			fields: fields{
+				logOpts: &logOpts{
+					CriticalOver: 4,
+					WarningOver:  2,
+				},
 			},
-			args: args{3},
+			args: args{
+				res: &ParsedQueryResult{
+					MatchedCount: 3,
+				},
+			},
 			want: checkers.Warning("3 > 2 messages"),
 		},
 		{
 			name: "will return OK when WarningOver > count",
-			logOpts: &logOpts{
-				CriticalOver: 4,
-				WarningOver:  2,
+			fields: fields{
+				logOpts: &logOpts{
+					CriticalOver: 4,
+					WarningOver:  2,
+				},
 			},
-			args: args{1},
+			args: args{
+				res: &ParsedQueryResult{
+					MatchedCount: 1,
+				},
+			},
 			want: checkers.Ok("1 messages"),
 		},
 		{
 			name: "will return WARNING when CriticalOver = count > WarningOver",
-			logOpts: &logOpts{
-				CriticalOver: 4,
-				WarningOver:  2,
+			fields: fields{
+				logOpts: &logOpts{
+					CriticalOver: 4,
+					WarningOver:  2,
+				},
 			},
-			args: args{4},
+			args: args{
+				res: &ParsedQueryResult{
+					MatchedCount: 4,
+				},
+			},
 			want: checkers.Warning("4 > 2 messages"),
 		},
 		{
 			name: "will return OK when count = WarningOver",
-			logOpts: &logOpts{
-				CriticalOver: 4,
-				WarningOver:  2,
+			fields: fields{
+				logOpts: &logOpts{
+					CriticalOver: 4,
+					WarningOver:  2,
+				},
 			},
-			args: args{2},
+			args: args{
+				res: &ParsedQueryResult{
+					MatchedCount: 2,
+				},
+			},
 			want: checkers.Ok("2 messages"),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &awsCWLogsInsightsPlugin{
-				logOpts: tt.logOpts,
+				Service:   tt.fields.Service,
+				StateFile: tt.fields.StateFile,
+				logOpts:   tt.fields.logOpts,
 			}
-			if got := p.checkCount(tt.args.count); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("awsCWLogsInsightsPlugin.checkCount() = %v, want %v", got, tt.want)
+			if got := p.buildChecker(tt.args.res); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("awsCWLogsInsightsPlugin.buildChecker() = %v, want %v", got, tt.want)
 			}
 		})
 	}

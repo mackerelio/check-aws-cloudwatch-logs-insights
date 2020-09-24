@@ -67,17 +67,17 @@ func createService(opts *logOpts) (*cloudwatchlogs.CloudWatchLogs, error) {
 	return cloudwatchlogs.New(sess, aws.NewConfig()), nil
 }
 
-func (p *awsCWLogsInsightsPlugin) checkCount(count int) *checkers.Checker {
+func (p *awsCWLogsInsightsPlugin) buildChecker(res *ParsedQueryResult) *checkers.Checker {
 	status := checkers.OK
 	var msg string
-	if count > p.CriticalOver {
+	if res.MatchedCount > p.CriticalOver {
 		status = checkers.CRITICAL
-		msg = fmt.Sprintf("%d > %d messages", count, p.CriticalOver)
-	} else if count > p.WarningOver {
+		msg = fmt.Sprintf("%d > %d messages", res.MatchedCount, p.CriticalOver)
+	} else if res.MatchedCount > p.WarningOver {
 		status = checkers.WARNING
-		msg = fmt.Sprintf("%d > %d messages", count, p.WarningOver)
+		msg = fmt.Sprintf("%d > %d messages", res.MatchedCount, p.WarningOver)
 	} else {
-		msg = fmt.Sprintf("%d messages", count)
+		msg = fmt.Sprintf("%d messages", res.MatchedCount)
 	}
 	return checkers.NewChecker(status, msg)
 }
@@ -184,11 +184,11 @@ func (p *awsCWLogsInsightsPlugin) stopQuery(queryID *string) error {
 }
 
 func (p *awsCWLogsInsightsPlugin) runWithoutContent(ctx context.Context) *checkers.Checker {
-	count, err := p.searchLogs(ctx)
+	res, err := p.searchLogs(ctx)
 	if err != nil {
 		return checkers.Unknown(err.Error())
 	}
-	return p.checkCount(count.MatchedCount)
+	return p.buildChecker(res)
 }
 
 func (p *awsCWLogsInsightsPlugin) run(ctx context.Context) *checkers.Checker {
