@@ -30,7 +30,7 @@ func init() {
 type logOpts struct {
 	LogGroupNames []string `long:"log-group-name" required:"true" value-name:"LOG-GROUP-NAME" description:"Log group name" unquote:"false"`
 
-	Query         string `short:"q" long:"query" required:"true" value-name:"QUERY" description:"Partial query used for CloudWatch Logs Insights" unquote:"false"`
+	Filter        string `short:"f" long:"filter" required:"true" value-name:"FILTER" description:"Filter expression to use search logs via CloudWatch Logs Insights" unquote:"false"`
 	WarningOver   int    `short:"w" long:"warning-over" value-name:"WARNING" description:"Trigger a warning if matched lines is over a number"`
 	CriticalOver  int    `short:"c" long:"critical-over" value-name:"CRITICAL" description:"Trigger a critical if matched lines is over a number"`
 	StateDir      string `short:"s" long:"state-dir" value-name:"DIR" description:"Dir to keep state files under" unquote:"false"`
@@ -126,9 +126,9 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context) (*ParsedQueryR
 	}
 }
 
-// fullQuery returns p.Query with additional commands for searching Logs
+// fullQuery returns p.Filter with additional commands for searching Logs
 func (p *awsCWLogsInsightsPlugin) fullQuery() string {
-	fullQuery := p.Query
+	fullQuery := p.Filter
 	if p.ReturnContent {
 		fullQuery = fullQuery + "| stats earliest(@message)"
 	}

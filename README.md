@@ -26,7 +26,7 @@ command = ["check-aws-cloudwatch-logs-insights", "--log-group-name", "/aws/lambd
 
 ```
       --log-group-name=LOG-GROUP-NAME                    Log group name
-  -f, --filter=FILTER                                    Filter expression to use search logs (TODO: not implemented yet. `--query` exists instead)
+  -f, --filter=FILTER                                    Filter expression to use search logs
   -w, --warning-over=WARNING                             Trigger a warning if matched lines is over a number
   -c, --critical-over=CRITICAL                           Trigger a critical if matched lines is over a number
   -s, --state-dir=DIR                                    Dir to keep state files under (TODO: not working yet)
@@ -38,7 +38,6 @@ The plugin uses the instance profile if possible, or you can configure `AWS_PROF
 You can specify `--log-group-name` options multiple times, like `--log-group-name=/some/log/group --log-group-name=/another/log/group`.
 
 #### `--filter` option
-TODO: not implemented yet!!!
 The expression specified by `--filter` will be used in the query for CloudWatch Logs Insights.  You can use one `filter` query command, or multiple query commands combined with `|`.  The query syntax is described in https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CWL_QuerySyntax.html.
 
 Please note that using other than `parse`, `sort`, or `filter` commands will cause unexpected results.
