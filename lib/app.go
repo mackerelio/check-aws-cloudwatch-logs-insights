@@ -34,7 +34,7 @@ type logOpts struct {
 	WarningOver   int    `short:"w" long:"warning-over" value-name:"WARNING" description:"Trigger a warning if matched lines is over a number"`
 	CriticalOver  int    `short:"c" long:"critical-over" value-name:"CRITICAL" description:"Trigger a critical if matched lines is over a number"`
 	StateDir      string `short:"s" long:"state-dir" value-name:"DIR" description:"Dir to keep state files under" unquote:"false"`
-	ReturnContent bool   `short:"r" long:"return" description:"Output matched lines"`
+	ReturnContent bool   `short:"r" long:"return" description:"Output earliest log found with given query"`
 }
 
 type awsCWLogsInsightsPlugin struct {
