@@ -101,7 +101,40 @@ func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
 			},
 			want: checkers.Ok("2 messages"),
 		},
-	}
+		{
+			name: "will include ReturnedMessage when ReturnContent: true",
+			fields: fields{
+				logOpts: &logOpts{
+					CriticalOver:  4,
+					WarningOver:   2,
+					ReturnContent: true,
+				},
+			},
+			args: args{
+				res: &ParsedQueryResult{
+					MatchedCount:    5,
+					ReturnedMessage: "this-is-returned-message",
+				},
+			},
+			want: checkers.Critical("5 > 4 messages\nthis-is-returned-message"),
+		},
+		{
+			name: "will not include ReturnedMessage when ReturnContent: false",
+			fields: fields{
+				logOpts: &logOpts{
+					CriticalOver:  4,
+					WarningOver:   2,
+					ReturnContent: false,
+				},
+			},
+			args: args{
+				res: &ParsedQueryResult{
+					MatchedCount:    5,
+					ReturnedMessage: "this-is-returned-message",
+				},
+			},
+			want: checkers.Critical("5 > 4 messages"),
+		}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &awsCWLogsInsightsPlugin{
@@ -135,11 +168,19 @@ func Test_parseResult(t *testing.T) {
 	type args struct {
 		out *cloudwatchlogs.GetQueryResultsOutput
 	}
-	successResult := [][]*cloudwatchlogs.ResultField{
+	simpleResult := [][]*cloudwatchlogs.ResultField{
 		{
 			&cloudwatchlogs.ResultField{
 				Field: aws.String("@message"),
 				Value: aws.String("some-log"),
+			},
+		},
+	}
+	returnContentResult := [][]*cloudwatchlogs.ResultField{
+		{
+			&cloudwatchlogs.ResultField{
+				Field: aws.String("earliest(@message)"),
+				Value: aws.String("this-is-earliest-message"),
 			},
 		},
 	}
@@ -154,7 +195,7 @@ func Test_parseResult(t *testing.T) {
 			args: args{
 				out: &cloudwatchlogs.GetQueryResultsOutput{
 					Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
-					Results: successResult,
+					Results: simpleResult,
 					Statistics: &cloudwatchlogs.QueryStatistics{
 						RecordsMatched: aws.Float64(25),
 					},
@@ -210,6 +251,24 @@ func Test_parseResult(t *testing.T) {
 			wantRes: &ParsedQueryResult{
 				Finished:     false, // running
 				MatchedCount: 0,
+			},
+			wantErr: false,
+		},
+		{
+			name: "with stats",
+			args: args{
+				out: &cloudwatchlogs.GetQueryResultsOutput{
+					Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
+					Results: returnContentResult,
+					Statistics: &cloudwatchlogs.QueryStatistics{
+						RecordsMatched: aws.Float64(25),
+					},
+				},
+			},
+			wantRes: &ParsedQueryResult{
+				Finished:        true, // complete
+				MatchedCount:    25,
+				ReturnedMessage: "this-is-earliest-message",
 			},
 			wantErr: false,
 		},

@@ -79,6 +79,9 @@ func (p *awsCWLogsInsightsPlugin) buildChecker(res *ParsedQueryResult) *checkers
 	} else {
 		msg = fmt.Sprintf("%d messages", res.MatchedCount)
 	}
+	if status != checkers.OK && p.ReturnContent {
+		msg += "\n" + res.ReturnedMessage
+	}
 	return checkers.NewChecker(status, msg)
 }
 
@@ -160,8 +163,9 @@ func (p *awsCWLogsInsightsPlugin) getQueryResults(queryID *string) (*cloudwatchl
 
 // ParsedQueryResult is a result
 type ParsedQueryResult struct {
-	Finished     bool
-	MatchedCount int
+	Finished        bool
+	MatchedCount    int
+	ReturnedMessage string
 }
 
 // parseResult parses *cloudwatchlogs.GetQueryResultsOutput for checking logs
@@ -181,6 +185,15 @@ func parseResult(out *cloudwatchlogs.GetQueryResultsOutput) (*ParsedQueryResult,
 		res.MatchedCount = int(*out.Statistics.RecordsMatched)
 	}
 
+	for _, fields := range out.Results {
+		for _, field := range fields {
+			if field.Field != nil && *field.Field == "earliest(@message)" && field.Value != nil {
+				res.ReturnedMessage = *(field.Value)
+				break
+			}
+		}
+	}
+
 	return res, nil
 }
 
@@ -192,19 +205,12 @@ func (p *awsCWLogsInsightsPlugin) stopQuery(queryID *string) error {
 	return err
 }
 
-func (p *awsCWLogsInsightsPlugin) runWithoutContent(ctx context.Context) *checkers.Checker {
+func (p *awsCWLogsInsightsPlugin) run(ctx context.Context) *checkers.Checker {
 	res, err := p.searchLogs(ctx)
 	if err != nil {
 		return checkers.Unknown(err.Error())
 	}
 	return p.buildChecker(res)
-}
-
-func (p *awsCWLogsInsightsPlugin) run(ctx context.Context) *checkers.Checker {
-	if !p.ReturnContent {
-		return p.runWithoutContent(ctx)
-	}
-	panic("not implemented")
 }
 
 // Do the logic
