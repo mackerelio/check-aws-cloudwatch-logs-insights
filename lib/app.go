@@ -167,9 +167,6 @@ func parseResult(out *cloudwatchlogs.GetQueryResultsOutput) (*ParsedQueryResult,
 	case cloudwatchlogs.QueryStatusComplete, cloudwatchlogs.QueryStatusFailed, cloudwatchlogs.QueryStatusCancelled:
 		res.Finished = true
 	}
-	if !res.Finished {
-		return res, nil
-	}
 
 	if out.Statistics != nil && out.Statistics.RecordsMatched != nil {
 		res.MatchedCount = int(*out.Statistics.RecordsMatched)
