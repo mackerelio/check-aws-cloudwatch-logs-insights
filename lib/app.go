@@ -123,6 +123,15 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context) (*ParsedQueryR
 	}
 }
 
+// fullQuery returns p.Query with additional commands for searching Logs
+func (p *awsCWLogsInsightsPlugin) fullQuery() string {
+	fullQuery := p.Query
+	if p.ReturnContent {
+		fullQuery = fullQuery + "| stats earliest(@message)"
+	}
+	return fullQuery
+}
+
 // QueryLimit is limit for StartQuery
 const QueryLimit = 100
 
@@ -133,7 +142,7 @@ func (p *awsCWLogsInsightsPlugin) startQuery(startTime, endTime time.Time) (*str
 		EndTime:       aws.Int64(endTime.Unix()),
 		StartTime:     aws.Int64(startTime.Unix()),
 		LogGroupNames: aws.StringSlice(p.LogGroupNames),
-		QueryString:   aws.String(p.Query),
+		QueryString:   aws.String(p.fullQuery()),
 		Limit:         aws.Int64(QueryLimit),
 	})
 	if err != nil {
