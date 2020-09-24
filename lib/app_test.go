@@ -96,7 +96,7 @@ func (c *mockAWSCloudWatchLogsClient) GetQueryResults(input *cloudwatchlogs.GetQ
 
 func Test_parseResult(t *testing.T) {
 	type args struct {
-		res *cloudwatchlogs.GetQueryResultsOutput
+		out *cloudwatchlogs.GetQueryResultsOutput
 	}
 	successResult := [][]*cloudwatchlogs.ResultField{
 		{
@@ -109,14 +109,13 @@ func Test_parseResult(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    int
-		want1   bool
+		wantRes *ParsedQueryResult
 		wantErr bool
 	}{
 		{
 			name: "complete",
 			args: args{
-				res: &cloudwatchlogs.GetQueryResultsOutput{
+				out: &cloudwatchlogs.GetQueryResultsOutput{
 					Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
 					Results: successResult,
 					Statistics: &cloudwatchlogs.QueryStatistics{
@@ -124,27 +123,31 @@ func Test_parseResult(t *testing.T) {
 					},
 				},
 			},
-			want:    25,
-			want1:   true, // complete
+			wantRes: &ParsedQueryResult{
+				Finished:     true, // complete
+				MatchedCount: 25,
+			},
 			wantErr: false,
 		},
 		{
 			name: "failed",
 			args: args{
-				res: &cloudwatchlogs.GetQueryResultsOutput{
+				out: &cloudwatchlogs.GetQueryResultsOutput{
 					Status:     aws.String(cloudwatchlogs.QueryStatusFailed),
 					Results:    nil,
 					Statistics: &cloudwatchlogs.QueryStatistics{},
 				},
 			},
-			want:    0,
-			want1:   true, // failed
+			wantRes: &ParsedQueryResult{
+				Finished:     true, // failed
+				MatchedCount: 0,
+			},
 			wantErr: false,
 		},
 		{
 			name: "cancelled",
 			args: args{
-				res: &cloudwatchlogs.GetQueryResultsOutput{
+				out: &cloudwatchlogs.GetQueryResultsOutput{
 					Status:  aws.String(cloudwatchlogs.QueryStatusCancelled),
 					Results: nil,
 					Statistics: &cloudwatchlogs.QueryStatistics{
@@ -152,36 +155,37 @@ func Test_parseResult(t *testing.T) {
 					},
 				},
 			},
-			want:    25,
-			want1:   true, // cancelled
+			wantRes: &ParsedQueryResult{
+				Finished:     true, // cancelled
+				MatchedCount: 25,
+			},
 			wantErr: false,
 		},
 		{
 			name: "running",
 			args: args{
-				res: &cloudwatchlogs.GetQueryResultsOutput{
+				out: &cloudwatchlogs.GetQueryResultsOutput{
 					Status:     aws.String(cloudwatchlogs.QueryStatusRunning),
 					Results:    nil,
 					Statistics: nil,
 				},
 			},
-			want:    0,
-			want1:   false, // running
+			wantRes: &ParsedQueryResult{
+				Finished:     false, // running
+				MatchedCount: 0,
+			},
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, err := parseResult(tt.args.res)
+			gotRes, err := parseResult(tt.args.out)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("awsCWLogsInsightsPlugin.parseResult() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("parseResult() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if got != tt.want {
-				t.Errorf("awsCWLogsInsightsPlugin.parseResult() got = %v, want %v", got, tt.want)
-			}
-			if got1 != tt.want1 {
-				t.Errorf("awsCWLogsInsightsPlugin.parseResult() got1 = %v, want %v", got1, tt.want1)
+			if !reflect.DeepEqual(gotRes, tt.wantRes) {
+				t.Errorf("parseResult() = %v, want %v", gotRes, tt.wantRes)
 			}
 		})
 	}

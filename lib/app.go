@@ -105,18 +105,18 @@ func (p *awsCWLogsInsightsPlugin) collectCount(ctx context.Context) (int, error)
 			return 0, err
 		case <-ticker.C:
 			logger.Debugf("Try to GetQueryResults...")
-			res, err := p.getQueryResults(queryID)
+			out, err := p.getQueryResults(queryID)
 			if err != nil {
 				logger.Warningf("GetQueryResults failed (will retry): %v", err)
 				continue
 			}
-			count, finished, err := parseResult(res)
-			if finished {
-				logger.Debugf("Query finished! got result: %v", res)
+			res, err := parseResult(out)
+			if res.Finished {
+				logger.Debugf("Query finished! got result: %v", out)
 				if err != nil {
 					return 0, fmt.Errorf("failed to get query results: %w", err)
 				}
-				return count, err
+				return res.MatchedCount, err
 			}
 			logger.Debugf("Query not finished. Will wait a while...")
 		}
@@ -149,26 +149,33 @@ func (p *awsCWLogsInsightsPlugin) getQueryResults(queryID *string) (*cloudwatchl
 	})
 }
 
+// ParsedQueryResult is a result
+type ParsedQueryResult struct {
+	Finished     bool
+	MatchedCount int
+}
+
 // parseResult parses *cloudwatchlogs.GetQueryResultsOutput for checking logs
-func parseResult(res *cloudwatchlogs.GetQueryResultsOutput) (matchedLogCount int, queryHasFinished bool, err error) {
-	if res == nil || res.Status == nil {
-		err = fmt.Errorf("unexpected response, %v", res)
-		return
+func parseResult(out *cloudwatchlogs.GetQueryResultsOutput) (*ParsedQueryResult, error) {
+	if out == nil || out.Status == nil {
+		err := fmt.Errorf("unexpected response, %v", out)
+		return nil, err
 	}
 
-	switch *res.Status {
+	res := &ParsedQueryResult{}
+	switch *out.Status {
 	case cloudwatchlogs.QueryStatusComplete, cloudwatchlogs.QueryStatusFailed, cloudwatchlogs.QueryStatusCancelled:
-		queryHasFinished = true
+		res.Finished = true
 	}
-	if !queryHasFinished {
-		return
-	}
-
-	if res.Statistics != nil && res.Statistics.RecordsMatched != nil {
-		matchedLogCount = int(*res.Statistics.RecordsMatched)
+	if !res.Finished {
+		return res, nil
 	}
 
-	return
+	if out.Statistics != nil && out.Statistics.RecordsMatched != nil {
+		res.MatchedCount = int(*out.Statistics.RecordsMatched)
+	}
+
+	return res, nil
 }
 
 // stopQuery stops given query by cloudwatchlogs.StopQuery()
