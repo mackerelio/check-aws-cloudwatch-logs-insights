@@ -135,9 +135,6 @@ func (p *awsCWLogsInsightsPlugin) fullQuery() string {
 	return fullQuery
 }
 
-// QueryLimit is limit for StartQuery
-const QueryLimit = 100
-
 // startQuery calls cloudwatchlogs.StartQuery()
 // returns (queryId, error)
 func (p *awsCWLogsInsightsPlugin) startQuery(startTime, endTime time.Time) (*string, error) {
@@ -146,7 +143,7 @@ func (p *awsCWLogsInsightsPlugin) startQuery(startTime, endTime time.Time) (*str
 		StartTime:     aws.Int64(startTime.Unix()),
 		LogGroupNames: aws.StringSlice(p.LogGroupNames),
 		QueryString:   aws.String(p.fullQuery()),
-		Limit:         aws.Int64(QueryLimit),
+		Limit:         aws.Int64(1),
 	})
 	if err != nil {
 		return nil, err
