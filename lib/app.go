@@ -85,8 +85,24 @@ func (p *awsCWLogsInsightsPlugin) buildChecker(res *ParsedQueryResults) *checker
 }
 
 func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context) (*ParsedQueryResults, error) {
-	endTime := time.Now()
-	startTime := endTime.Add(-2 * time.Minute)
+	var startTime time.Time
+	if lastState, err := p.loadState(); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, fmt.Errorf("failed to load plugin state: %w", err)
+		}
+	} else if lastState.QueryStartedAt != 0 {
+		startTime = time.Unix(lastState.QueryStartedAt, 0).Add(-2 * time.Minute)
+	}
+
+	queryStartAt := time.Now()
+	endTime := queryStartAt
+	if startTime.IsZero() {
+		startTime = endTime.Add(-3 * time.Minute)
+	}
+	state := &logState{
+		QueryStartedAt: queryStartAt.Unix(),
+	}
+
 	queryID, err := p.startQuery(startTime, endTime)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start query: %w", err)
@@ -118,7 +134,10 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context) (*ParsedQueryR
 				if err != nil {
 					return nil, fmt.Errorf("failed to get query results: %w", err)
 				}
-				return res, err
+				if err := p.saveState(state); err != nil {
+					return nil, fmt.Errorf("failed to save state file: %w", err)
+				}
+				return res, nil
 			}
 			logger.Debugf("Query not finished. Will wait a while...")
 		}
