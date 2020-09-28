@@ -29,7 +29,7 @@ command = ["check-aws-cloudwatch-logs-insights", "--log-group-name", "/aws/lambd
   -f, --filter=FILTER                                    Filter expression to use search logs
   -w, --warning-over=WARNING                             Trigger a warning if matched lines is over a number
   -c, --critical-over=CRITICAL                           Trigger a critical if matched lines is over a number
-  -s, --state-dir=DIR                                    Dir to keep state files under (TODO: not working yet)
+  -s, --state-dir=DIR                                    Dir to keep state files under
   -r, --return                                           Output earliest log found with given query
 ```
 
