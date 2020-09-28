@@ -120,11 +120,14 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context) (*ParsedQueryR
 			err := ctx.Err()
 			// Cancel current query.
 			logger.Infof("execution cancelled. Will send StopQuery to stop the running query.")
-			stopQueryErr := p.stopQuery(queryID)
-			if stopQueryErr != nil {
-				return nil, fmt.Errorf("execution cancelled (%v) and failed to stop the runnig query: %w", err, stopQueryErr)
+			if saveStateErr := p.saveState(state); saveStateErr != nil {
+				logger.Errorf("failed to save state file: %v", saveStateErr)
 			}
-			logger.Debugf("succeeded to cancel query")
+			if stopQueryErr := p.stopQuery(queryID); stopQueryErr != nil {
+				logger.Errorf("failed to stop the runnig query: %v", stopQueryErr)
+			} else {
+				logger.Debugf("succeeded to cancel query")
+			}
 			return nil, err
 		case <-ticker.C:
 			logger.Debugf("Try to GetQueryResults...")
@@ -137,10 +140,13 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context) (*ParsedQueryR
 			if res.Finished {
 				logger.Debugf("Query finished! got result: %v", out)
 				if err != nil {
+					if saveStateErr := p.saveState(state); saveStateErr != nil {
+						logger.Errorf("failed to save state file: %v", saveStateErr)
+					}
 					return nil, fmt.Errorf("failed to get query results: %w", err)
 				}
-				if err := p.saveState(state); err != nil {
-					return nil, fmt.Errorf("failed to save state file: %w", err)
+				if saveStateErr := p.saveState(state); saveStateErr != nil {
+					return nil, fmt.Errorf("failed to save state file: %w", saveStateErr)
 				}
 				return res, nil
 			}
