@@ -67,7 +67,7 @@ func createService(opts *logOpts) (*cloudwatchlogs.CloudWatchLogs, error) {
 	return cloudwatchlogs.New(sess, aws.NewConfig()), nil
 }
 
-func (p *awsCWLogsInsightsPlugin) buildChecker(res *ParsedQueryResult) *checkers.Checker {
+func (p *awsCWLogsInsightsPlugin) buildChecker(res *ParsedQueryResults) *checkers.Checker {
 	status := checkers.OK
 	var msg string
 	if res.MatchedCount > p.CriticalOver {
@@ -85,7 +85,7 @@ func (p *awsCWLogsInsightsPlugin) buildChecker(res *ParsedQueryResult) *checkers
 	return checkers.NewChecker(status, msg)
 }
 
-func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context) (*ParsedQueryResult, error) {
+func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context) (*ParsedQueryResults, error) {
 	endTime := time.Now()
 	startTime := endTime.Add(-2 * time.Minute)
 	queryID, err := p.startQuery(startTime, endTime)
@@ -158,21 +158,21 @@ func (p *awsCWLogsInsightsPlugin) getQueryResults(queryID *string) (*cloudwatchl
 	})
 }
 
-// ParsedQueryResult is a result
-type ParsedQueryResult struct {
+// ParsedQueryResults is a result
+type ParsedQueryResults struct {
 	Finished        bool
 	MatchedCount    int
 	ReturnedMessage string
 }
 
 // parseResult parses *cloudwatchlogs.GetQueryResultsOutput for checking logs
-func parseResult(out *cloudwatchlogs.GetQueryResultsOutput) (*ParsedQueryResult, error) {
+func parseResult(out *cloudwatchlogs.GetQueryResultsOutput) (*ParsedQueryResults, error) {
 	if out == nil || out.Status == nil {
 		err := fmt.Errorf("unexpected response, %v", out)
 		return nil, err
 	}
 
-	res := &ParsedQueryResult{}
+	res := &ParsedQueryResults{}
 	switch *out.Status {
 	case cloudwatchlogs.QueryStatusComplete, cloudwatchlogs.QueryStatusFailed, cloudwatchlogs.QueryStatusCancelled:
 		res.Finished = true

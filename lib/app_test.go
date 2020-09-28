@@ -18,7 +18,7 @@ func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
 		logOpts   *logOpts
 	}
 	type args struct {
-		res *ParsedQueryResult
+		res *ParsedQueryResults
 	}
 	tests := []struct {
 		name   string
@@ -35,7 +35,7 @@ func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
 				},
 			},
 			args: args{
-				res: &ParsedQueryResult{
+				res: &ParsedQueryResults{
 					MatchedCount: 5,
 				},
 			},
@@ -50,7 +50,7 @@ func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
 				},
 			},
 			args: args{
-				res: &ParsedQueryResult{
+				res: &ParsedQueryResults{
 					MatchedCount: 3,
 				},
 			},
@@ -65,7 +65,7 @@ func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
 				},
 			},
 			args: args{
-				res: &ParsedQueryResult{
+				res: &ParsedQueryResults{
 					MatchedCount: 1,
 				},
 			},
@@ -80,7 +80,7 @@ func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
 				},
 			},
 			args: args{
-				res: &ParsedQueryResult{
+				res: &ParsedQueryResults{
 					MatchedCount: 4,
 				},
 			},
@@ -95,7 +95,7 @@ func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
 				},
 			},
 			args: args{
-				res: &ParsedQueryResult{
+				res: &ParsedQueryResults{
 					MatchedCount: 2,
 				},
 			},
@@ -107,11 +107,11 @@ func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
 				logOpts: &logOpts{
 					CriticalOver:  4,
 					WarningOver:   2,
-					ReturnContent: true,
+					ReturnMessage: true,
 				},
 			},
 			args: args{
-				res: &ParsedQueryResult{
+				res: &ParsedQueryResults{
 					MatchedCount:    5,
 					ReturnedMessage: "this-is-returned-message",
 				},
@@ -124,11 +124,11 @@ func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
 				logOpts: &logOpts{
 					CriticalOver:  4,
 					WarningOver:   2,
-					ReturnContent: false,
+					ReturnMessage: false,
 				},
 			},
 			args: args{
-				res: &ParsedQueryResult{
+				res: &ParsedQueryResults{
 					MatchedCount:    5,
 					ReturnedMessage: "this-is-returned-message",
 				},
@@ -187,7 +187,7 @@ func Test_parseResult(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		wantRes *ParsedQueryResult
+		wantRes *ParsedQueryResults
 		wantErr bool
 	}{
 		{
@@ -201,7 +201,7 @@ func Test_parseResult(t *testing.T) {
 					},
 				},
 			},
-			wantRes: &ParsedQueryResult{
+			wantRes: &ParsedQueryResults{
 				Finished:     true, // complete
 				MatchedCount: 25,
 			},
@@ -216,7 +216,7 @@ func Test_parseResult(t *testing.T) {
 					Statistics: &cloudwatchlogs.QueryStatistics{},
 				},
 			},
-			wantRes: &ParsedQueryResult{
+			wantRes: &ParsedQueryResults{
 				Finished:     true, // failed
 				MatchedCount: 0,
 			},
@@ -233,7 +233,7 @@ func Test_parseResult(t *testing.T) {
 					},
 				},
 			},
-			wantRes: &ParsedQueryResult{
+			wantRes: &ParsedQueryResults{
 				Finished:     true, // cancelled
 				MatchedCount: 25,
 			},
@@ -248,7 +248,7 @@ func Test_parseResult(t *testing.T) {
 					Statistics: nil,
 				},
 			},
-			wantRes: &ParsedQueryResult{
+			wantRes: &ParsedQueryResults{
 				Finished:     false, // running
 				MatchedCount: 0,
 			},
@@ -265,7 +265,7 @@ func Test_parseResult(t *testing.T) {
 					},
 				},
 			},
-			wantRes: &ParsedQueryResult{
+			wantRes: &ParsedQueryResults{
 				Finished:        true, // complete
 				MatchedCount:    25,
 				ReturnedMessage: "this-is-earliest-message",
