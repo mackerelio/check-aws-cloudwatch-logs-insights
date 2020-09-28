@@ -102,7 +102,7 @@ func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
 			want: checkers.Ok("2 messages"),
 		},
 		{
-			name: "will include ReturnedMessage when ReturnContent: true",
+			name: "will include ReturnedMessage when ReturnMessage: true",
 			fields: fields{
 				logOpts: &logOpts{
 					CriticalOver:  4,
@@ -119,7 +119,7 @@ func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
 			want: checkers.Critical("5 > 4 messages\nthis-is-returned-message"),
 		},
 		{
-			name: "will not include ReturnedMessage when ReturnContent: false",
+			name: "will not include ReturnedMessage when ReturnMessage: false",
 			fields: fields{
 				logOpts: &logOpts{
 					CriticalOver:  4,

@@ -34,7 +34,7 @@ type logOpts struct {
 	WarningOver   int    `short:"w" long:"warning-over" value-name:"WARNING" description:"Trigger a warning if matched lines is over a number"`
 	CriticalOver  int    `short:"c" long:"critical-over" value-name:"CRITICAL" description:"Trigger a critical if matched lines is over a number"`
 	StateDir      string `short:"s" long:"state-dir" value-name:"DIR" description:"Dir to keep state files under" unquote:"false"`
-	ReturnContent bool   `short:"r" long:"return" description:"Output earliest log found with given query"`
+	ReturnMessage bool   `short:"r" long:"return" description:"Output earliest log found with given query"`
 }
 
 type awsCWLogsInsightsPlugin struct {
@@ -79,7 +79,7 @@ func (p *awsCWLogsInsightsPlugin) buildChecker(res *ParsedQueryResults) *checker
 	} else {
 		msg = fmt.Sprintf("%d messages", res.MatchedCount)
 	}
-	if status != checkers.OK && p.ReturnContent {
+	if status != checkers.OK && p.ReturnMessage {
 		msg += "\n" + res.ReturnedMessage
 	}
 	return checkers.NewChecker(status, msg)
@@ -129,7 +129,7 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context) (*ParsedQueryR
 // fullQuery returns p.Filter with additional commands for searching Logs
 func (p *awsCWLogsInsightsPlugin) fullQuery() string {
 	fullQuery := p.Filter
-	if p.ReturnContent {
+	if p.ReturnMessage {
 		fullQuery = fullQuery + "| stats earliest(@message)"
 	}
 	return fullQuery
