@@ -47,10 +47,12 @@ func (p *awsCWLogsInsightsPlugin) loadState() (*logState, error) {
 	if err != nil {
 		return nil, err
 	}
+	logger.Debugf("Loaded state from stateFile %s: %#v", p.StateFile, s)
 	return &s, nil
 }
 
 func (p *awsCWLogsInsightsPlugin) saveState(s *logState) error {
+	logger.Debugf("Saving state to stateFile %s: %#v", p.StateFile, s)
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(s); err != nil {
 		return err
