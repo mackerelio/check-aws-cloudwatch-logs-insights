@@ -1,11 +1,15 @@
 package checkawscloudwatchlogsinsights
 
 import (
+	"bytes"
 	"context"
+	"crypto/md5"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -17,6 +21,7 @@ import (
 	"github.com/mackerelio/checkers"
 	"github.com/mackerelio/golib/logging"
 	"github.com/mackerelio/golib/pluginutil"
+	"github.com/natefinch/atomic"
 )
 
 var logger *logging.Logger
@@ -218,6 +223,57 @@ func (p *awsCWLogsInsightsPlugin) stopQuery(queryID *string) error {
 		QueryId: queryID,
 	})
 	return err
+}
+
+type logState struct {
+	QueryStartedAt int64
+}
+
+func getStateFile(stateDir string, args []string) string {
+	return filepath.Join(
+		stateDir,
+		fmt.Sprintf(
+			"%x.json",
+			md5.Sum([]byte(
+				strings.Join(
+					[]string{
+						os.Getenv("AWS_PROFILE"),
+						os.Getenv("AWS_ACCESS_KEY_ID"),
+						os.Getenv("AWS_REGION"),
+						strings.Join(args, " "),
+					},
+					" ",
+				)),
+			),
+		),
+	)
+}
+
+func (p *awsCWLogsInsightsPlugin) loadState() (*logState, error) {
+	f, err := os.Open(p.StateFile)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	var s logState
+	err = json.NewDecoder(f).Decode(&s)
+	if err != nil {
+		return nil, err
+	}
+	logger.Debugf("Loaded state from stateFile %s: %#v", p.StateFile, s)
+	return &s, nil
+}
+
+func (p *awsCWLogsInsightsPlugin) saveState(s *logState) error {
+	logger.Debugf("Saving state to stateFile %s: %#v", p.StateFile, s)
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(s); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(p.StateFile), 0755); err != nil {
+		return err
+	}
+	return atomic.WriteFile(p.StateFile, &buf)
 }
 
 func (p *awsCWLogsInsightsPlugin) run(ctx context.Context) *checkers.Checker {
