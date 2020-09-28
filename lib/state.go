@@ -13,7 +13,7 @@ import (
 )
 
 type logState struct {
-	QueryStartedAt *int64
+	QueryStartedAt int64
 }
 
 func getStateFile(stateDir string, args []string) string {
