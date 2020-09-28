@@ -50,12 +50,11 @@ func newCWLogsInsightsPlugin(opts *logOpts, args []string) (*awsCWLogsInsightsPl
 	if err != nil {
 		return nil, err
 	}
-	// state not implemented
 	if p.StateDir == "" {
 		workdir := pluginutil.PluginWorkDir()
 		p.StateDir = filepath.Join(workdir, "check-aws-cloudwatch-logs-insights")
 	}
-	// p.StateFile = getStateFile(p.StateDir, opts.LogGroupName, opts.LogStreamNamePrefix, args)
+	p.StateFile = getStateFile(p.StateDir, args)
 	return p, nil
 }
 

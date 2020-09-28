@@ -27,6 +27,8 @@ github.com/mattn/go-colorable v0.1.1/go.mod h1:FuOcm+DKB9mbwrcAfNl7/TZVBZ6rcncea
 github.com/mattn/go-isatty v0.0.5/go.mod h1:Iq45c/XA43vh69/j3iqttzPXn0bhXyGjM0Hdxcsrc5s=
 github.com/mattn/go-isatty v0.0.7/go.mod h1:Iq45c/XA43vh69/j3iqttzPXn0bhXyGjM0Hdxcsrc5s=
 github.com/mitchellh/go-homedir v1.1.0/go.mod h1:SfyaCUpYCn1Vlf4IUYiD9fPX4A5wJrkLzIz1N1q0pr0=
+github.com/natefinch/atomic v0.0.0-20200526193002-18c0533a5b09 h1:DXR0VtCesBD2ss3toN9OEeXszpQmW9dc3SvUbUfiBC0=
+github.com/natefinch/atomic v0.0.0-20200526193002-18c0533a5b09/go.mod h1:1rLVY/DWf3U6vSZgH16S7pymfrhK2lcUlXjgGglw/lY=
 github.com/octokit/go-octokit v0.4.1-0.20160312003706-812e91dfbd64/go.mod h1:2u3khcAsOOTW3hlaM3dbJxDdvwHMDGQsC5m7edPSLkg=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
