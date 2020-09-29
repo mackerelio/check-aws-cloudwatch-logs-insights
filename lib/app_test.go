@@ -15,7 +15,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs/cloudwatchlogsiface"
 	"github.com/mackerelio/checkers"
-	"github.com/stretchr/testify/assert"
 )
 
 func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
@@ -307,56 +306,101 @@ func Test_parseResult(t *testing.T) {
 }
 
 func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
-	file, _ := ioutil.TempFile("", "check-cloudwatch-logs-test-collect")
-	os.Remove(file.Name())
-	file.Close()
-	defer os.Remove(file.Name())
-
-	svc := mockAWSCloudWatchLogsClient{}
-	svc.startQueryOutput = &cloudwatchlogs.StartQueryOutput{
-		QueryId: aws.String("DUMMY-QUERY-ID"),
+	now := time.Now()
+	type fields struct {
+		Service *mockAWSCloudWatchLogsClient
+		logOpts *logOpts
 	}
-	svc.getQueryResultsOutputs = map[string]*cloudwatchlogs.GetQueryResultsOutput{
-		"DUMMY-QUERY-ID": {
-			Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
-			Results: [][]*cloudwatchlogs.ResultField{},
-			Statistics: &cloudwatchlogs.QueryStatistics{
-				RecordsMatched: aws.Float64(6),
+	tests := []struct {
+		name             string
+		fields           fields
+		logState         *logState // when nil, remove stateFile
+		want             *ParsedQueryResults
+		wantErr          bool
+		wantNextLogState *logState
+		wantInput        *cloudwatchlogs.StartQueryInput
+	}{
+		{
+			name: "without state file",
+			fields: fields{
+				Service: &mockAWSCloudWatchLogsClient{
+					startQueryOutput: &cloudwatchlogs.StartQueryOutput{
+						QueryId: aws.String("DUMMY-QUERY-ID"),
+					},
+					getQueryResultsOutputs: map[string]*cloudwatchlogs.GetQueryResultsOutput{
+						"DUMMY-QUERY-ID": {
+							Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
+							Results: [][]*cloudwatchlogs.ResultField{},
+							Statistics: &cloudwatchlogs.QueryStatistics{
+								RecordsMatched: aws.Float64(6),
+							},
+						},
+					},
+				},
+				logOpts: &logOpts{
+					LogGroupNames: []string{"/log/foo", "/log/baz"},
+					Filter:        "filter @message like /omg/",
+				},
+			},
+			logState: nil,
+			want: &ParsedQueryResults{
+				Finished:     true,
+				MatchedCount: 6,
+			},
+			wantErr: false,
+			wantNextLogState: &logState{
+				QueryStartedAt: now.Unix(),
+			},
+			wantInput: &cloudwatchlogs.StartQueryInput{
+				StartTime:     aws.Int64(now.Add(-3 * time.Minute).Unix()),
+				EndTime:       aws.Int64(now.Unix()),
+				LogGroupNames: aws.StringSlice([]string{"/log/foo", "/log/baz"}),
+				QueryString:   aws.String("filter @message like /omg/"),
+				Limit:         aws.Int64(1),
 			},
 		},
 	}
-	p := &awsCWLogsInsightsPlugin{
-		Service:   &svc,
-		StateFile: file.Name(),
-		logOpts: &logOpts{
-			LogGroupNames: []string{"/log/foo", "/log/baz"},
-			Filter:        "filter @message like /omg/",
-		},
-	}
-	ctx := context.TODO()
-	now := time.Now()
-	res, err := p.searchLogs(ctx, now)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// prepare state
+			file, _ := ioutil.TempFile("", "check-aws-cloudwatch-logs-streams-test-searchLogs")
+			if tt.logState == nil {
+				os.Remove(file.Name())
+			} else {
+				b, _ := json.Marshal(tt.logState)
+				ioutil.WriteFile(file.Name(), b, 0644)
+			}
+			file.Close()
+			defer os.Remove(file.Name())
 
-	assert.Equal(t, err, nil, "err should be nil")
-	assert.Equal(t, res.MatchedCount, 6)
-	assert.Equal(t, res.Finished, true)
+			p := &awsCWLogsInsightsPlugin{
+				Service:   tt.fields.Service,
+				StateFile: file.Name(),
+				logOpts:   tt.fields.logOpts,
+			}
+			got, err := p.searchLogs(context.TODO(), now)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("awsCWLogsInsightsPlugin.searchLogs() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("awsCWLogsInsightsPlugin.searchLogs() = %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(tt.fields.Service.latestStartQueryInput, tt.wantInput) {
+				t.Errorf("%v was passed to StartQuery, want %v", tt.fields.Service.latestStartQueryInput, tt.wantInput)
+			}
 
-	// test what has been passed to StartQuery
-	expectedInput := &cloudwatchlogs.StartQueryInput{
-		StartTime:     aws.Int64(now.Add(-3 * time.Minute).Unix()),
-		EndTime:       aws.Int64(now.Unix()),
-		LogGroupNames: aws.StringSlice([]string{"/log/foo", "/log/baz"}),
-		QueryString:   aws.String("filter @message like /omg/"),
-		Limit:         aws.Int64(1),
-	}
-	if !reflect.DeepEqual(svc.latestStartQueryInput, expectedInput) {
-		t.Errorf("%v was passed to StartQuery, want %v", svc.latestStartQueryInput, expectedInput)
-	}
+			// test whether stateFile is updated
+			cnt, _ := ioutil.ReadFile(file.Name())
+			var s logState
+			err = json.NewDecoder(bytes.NewReader(cnt)).Decode(&s)
+			if err != nil {
+				t.Error("failed to load saved stateFile")
+			}
+			if !reflect.DeepEqual(&s, tt.wantNextLogState) {
+				t.Errorf("logState %v, want %v", s, tt.wantNextLogState)
+			}
 
-	// test whether stateFile is updated
-	cnt, _ := ioutil.ReadFile(file.Name())
-	var s logState
-	err = json.NewDecoder(bytes.NewReader(cnt)).Decode(&s)
-	assert.Equal(t, err, nil)
-	assert.Equal(t, s.QueryStartedAt, now.Unix())
+		})
+	}
 }
