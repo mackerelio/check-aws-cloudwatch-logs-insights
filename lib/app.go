@@ -124,7 +124,7 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context) (*ParsedQueryR
 				logger.Errorf("failed to save state file: %v", saveStateErr)
 			}
 			if stopQueryErr := p.stopQuery(queryID); stopQueryErr != nil {
-				logger.Errorf("failed to stop the runnig query: %v", stopQueryErr)
+				logger.Errorf("failed to stop the running query: %v", stopQueryErr)
 			} else {
 				logger.Debugf("succeeded to cancel query")
 			}
