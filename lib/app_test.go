@@ -9,6 +9,7 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
@@ -327,7 +328,8 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 		logOpts:   &logOpts{},
 	}
 	ctx := context.TODO()
-	res, err := p.searchLogs(ctx)
+	now := time.Now()
+	res, err := p.searchLogs(ctx, now)
 	assert.Equal(t, err, nil, "err should be nil")
 	assert.Equal(t, res.MatchedCount, 6)
 	assert.Equal(t, res.Finished, true)
@@ -335,5 +337,5 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 	var s logState
 	err = json.NewDecoder(bytes.NewReader(cnt)).Decode(&s)
 	assert.Equal(t, err, nil)
-	// TODO we want to test what's decoded onto s, but it's time dependent
+	assert.Equal(t, s.QueryStartedAt, now.Unix())
 }

@@ -89,7 +89,7 @@ func (p *awsCWLogsInsightsPlugin) buildChecker(res *ParsedQueryResults) *checker
 	return checkers.NewChecker(status, msg)
 }
 
-func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context) (*ParsedQueryResults, error) {
+func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimestamp time.Time) (*ParsedQueryResults, error) {
 	var startTime time.Time
 	if lastState, err := p.loadState(); err != nil {
 		if !os.IsNotExist(err) {
@@ -99,13 +99,12 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context) (*ParsedQueryR
 		startTime = time.Unix(lastState.QueryStartedAt, 0).Add(-2 * time.Minute)
 	}
 
-	queryStartAt := time.Now()
-	endTime := queryStartAt
+	endTime := currentTimestamp
 	if startTime.IsZero() {
 		startTime = endTime.Add(-3 * time.Minute)
 	}
 	state := &logState{
-		QueryStartedAt: queryStartAt.Unix(),
+		QueryStartedAt: currentTimestamp.Unix(),
 	}
 
 	queryID, err := p.startQuery(startTime, endTime)
@@ -283,7 +282,8 @@ func (p *awsCWLogsInsightsPlugin) saveState(s *logState) error {
 }
 
 func (p *awsCWLogsInsightsPlugin) run(ctx context.Context) *checkers.Checker {
-	res, err := p.searchLogs(ctx)
+	now := time.Now()
+	res, err := p.searchLogs(ctx, now)
 	if err != nil {
 		return checkers.Unknown(err.Error())
 	}
