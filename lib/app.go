@@ -90,19 +90,20 @@ func (p *awsCWLogsInsightsPlugin) buildChecker(res *ParsedQueryResults) *checker
 }
 
 func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimestamp time.Time) (*ParsedQueryResults, error) {
-	var startTime time.Time
-	if lastState, err := p.loadState(); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, fmt.Errorf("failed to load plugin state: %w", err)
-		}
-	} else if lastState.QueryStartedAt != 0 {
+	// Default behavior: search in recent 3 minutes
+	endTime := currentTimestamp
+	startTime := endTime.Add(-3 * time.Minute)
+
+	// If state file found, consider previous QueryStartedAt
+	// (Add extra 2 minutes onsidering delay in CloudWatch Logs Insights)
+	lastState, err := p.loadState()
+	if err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("failed to load plugin state: %w", err)
+	}
+	if lastState != nil && lastState.QueryStartedAt != 0 {
 		startTime = time.Unix(lastState.QueryStartedAt, 0).Add(-2 * time.Minute)
 	}
 
-	endTime := currentTimestamp
-	if startTime.IsZero() {
-		startTime = endTime.Add(-3 * time.Minute)
-	}
 	nextState := &logState{
 		QueryStartedAt: currentTimestamp.Unix(),
 	}
