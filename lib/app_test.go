@@ -359,6 +359,95 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 				Limit:         aws.Int64(1),
 			},
 		},
+		{
+			name: "with state file",
+			fields: fields{
+				Service: &mockAWSCloudWatchLogsClient{
+					startQueryOutput: &cloudwatchlogs.StartQueryOutput{
+						QueryId: aws.String("DUMMY-QUERY-ID"),
+					},
+					getQueryResultsOutputs: map[string]*cloudwatchlogs.GetQueryResultsOutput{
+						"DUMMY-QUERY-ID": {
+							Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
+							Results: [][]*cloudwatchlogs.ResultField{},
+							Statistics: &cloudwatchlogs.QueryStatistics{
+								RecordsMatched: aws.Float64(6),
+							},
+						},
+					},
+				},
+				logOpts: &logOpts{
+					LogGroupNames: []string{"/log/foo", "/log/baz"},
+					Filter:        "filter @message like /omg/",
+				},
+			},
+			logState: &logState{
+				QueryStartedAt: now.Add(-42 * time.Minute).Unix(),
+			},
+			want: &ParsedQueryResults{
+				Finished:     true,
+				MatchedCount: 6,
+			},
+			wantErr: false,
+			wantNextLogState: &logState{
+				QueryStartedAt: now.Unix(),
+			},
+			wantInput: &cloudwatchlogs.StartQueryInput{
+				StartTime:     aws.Int64(now.Add(-44 * time.Minute).Unix()), // -42 - 2
+				EndTime:       aws.Int64(now.Unix()),
+				LogGroupNames: aws.StringSlice([]string{"/log/foo", "/log/baz"}),
+				QueryString:   aws.String("filter @message like /omg/"),
+				Limit:         aws.Int64(1),
+			},
+		},
+		{
+			name: "with ReturnMessage: true",
+			fields: fields{
+				Service: &mockAWSCloudWatchLogsClient{
+					startQueryOutput: &cloudwatchlogs.StartQueryOutput{
+						QueryId: aws.String("DUMMY-QUERY-ID"),
+					},
+					getQueryResultsOutputs: map[string]*cloudwatchlogs.GetQueryResultsOutput{
+						"DUMMY-QUERY-ID": {
+							Status: aws.String(cloudwatchlogs.QueryStatusComplete),
+							Results: [][]*cloudwatchlogs.ResultField{
+								{
+									{
+										Field: aws.String("earliest(@message)"),
+										Value: aws.String("omg something happend"),
+									},
+								},
+							},
+							Statistics: &cloudwatchlogs.QueryStatistics{
+								RecordsMatched: aws.Float64(6),
+							},
+						},
+					},
+				},
+				logOpts: &logOpts{
+					LogGroupNames: []string{"/log/foo", "/log/baz"},
+					Filter:        "filter @message like /omg/",
+					ReturnMessage: true,
+				},
+			},
+			logState: nil,
+			want: &ParsedQueryResults{
+				Finished:        true,
+				MatchedCount:    6,
+				ReturnedMessage: "omg something happend",
+			},
+			wantErr: false,
+			wantNextLogState: &logState{
+				QueryStartedAt: now.Unix(),
+			},
+			wantInput: &cloudwatchlogs.StartQueryInput{
+				StartTime:     aws.Int64(now.Add(-3 * time.Minute).Unix()),
+				EndTime:       aws.Int64(now.Unix()),
+				LogGroupNames: aws.StringSlice([]string{"/log/foo", "/log/baz"}),
+				QueryString:   aws.String("filter @message like /omg/| stats earliest(@message)"),
+				Limit:         aws.Int64(1),
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
