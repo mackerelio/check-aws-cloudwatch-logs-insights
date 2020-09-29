@@ -1,7 +1,12 @@
 package checkawscloudwatchlogsinsights
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"errors"
+	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 
@@ -9,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs/cloudwatchlogsiface"
 	"github.com/mackerelio/checkers"
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
@@ -151,7 +157,16 @@ func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
 
 type mockAWSCloudWatchLogsClient struct {
 	cloudwatchlogsiface.CloudWatchLogsAPI
+	// responses. you need to set desired response
+	startQueryOutput       *cloudwatchlogs.StartQueryOutput
 	getQueryResultsOutputs map[string]*cloudwatchlogs.GetQueryResultsOutput
+}
+
+func (c *mockAWSCloudWatchLogsClient) StartQuery(input *cloudwatchlogs.StartQueryInput) (*cloudwatchlogs.StartQueryOutput, error) {
+	if res := c.startQueryOutput; res != nil {
+		return res, nil
+	}
+	return nil, errors.New("failed to start")
 }
 
 func (c *mockAWSCloudWatchLogsClient) GetQueryResults(input *cloudwatchlogs.GetQueryResultsInput) (*cloudwatchlogs.GetQueryResultsOutput, error) {
@@ -285,4 +300,40 @@ func Test_parseResult(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
+	file, _ := ioutil.TempFile("", "check-cloudwatch-logs-test-collect")
+	os.Remove(file.Name())
+	file.Close()
+	defer os.Remove(file.Name())
+
+	svc := mockAWSCloudWatchLogsClient{}
+	svc.startQueryOutput = &cloudwatchlogs.StartQueryOutput{
+		QueryId: aws.String("DUMMY-QUERY-ID"),
+	}
+	svc.getQueryResultsOutputs = map[string]*cloudwatchlogs.GetQueryResultsOutput{
+		"DUMMY-QUERY-ID": {
+			Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
+			Results: [][]*cloudwatchlogs.ResultField{},
+			Statistics: &cloudwatchlogs.QueryStatistics{
+				RecordsMatched: aws.Float64(6),
+			},
+		},
+	}
+	p := &awsCWLogsInsightsPlugin{
+		Service:   &svc,
+		StateFile: file.Name(),
+		logOpts:   &logOpts{},
+	}
+	ctx := context.TODO()
+	res, err := p.searchLogs(ctx)
+	assert.Equal(t, err, nil, "err should be nil")
+	assert.Equal(t, res.MatchedCount, 6)
+	assert.Equal(t, res.Finished, true)
+	cnt, _ := ioutil.ReadFile(file.Name())
+	var s logState
+	err = json.NewDecoder(bytes.NewReader(cnt)).Decode(&s)
+	assert.Equal(t, err, nil)
+	// TODO we want to test what's decoded onto s, but it's time dependent
 }
