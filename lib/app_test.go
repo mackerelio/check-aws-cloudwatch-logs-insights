@@ -161,9 +161,12 @@ type mockAWSCloudWatchLogsClient struct {
 	// responses. you need to set desired response
 	startQueryOutput       *cloudwatchlogs.StartQueryOutput
 	getQueryResultsOutputs map[string]*cloudwatchlogs.GetQueryResultsOutput
+
+	latestStartQueryInput *cloudwatchlogs.StartQueryInput
 }
 
 func (c *mockAWSCloudWatchLogsClient) StartQuery(input *cloudwatchlogs.StartQueryInput) (*cloudwatchlogs.StartQueryOutput, error) {
+	c.latestStartQueryInput = input
 	if res := c.startQueryOutput; res != nil {
 		return res, nil
 	}
@@ -325,14 +328,32 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 	p := &awsCWLogsInsightsPlugin{
 		Service:   &svc,
 		StateFile: file.Name(),
-		logOpts:   &logOpts{},
+		logOpts: &logOpts{
+			LogGroupNames: []string{"/log/foo", "/log/baz"},
+			Filter:        "filter @message like /omg/",
+		},
 	}
 	ctx := context.TODO()
 	now := time.Now()
 	res, err := p.searchLogs(ctx, now)
+
 	assert.Equal(t, err, nil, "err should be nil")
 	assert.Equal(t, res.MatchedCount, 6)
 	assert.Equal(t, res.Finished, true)
+
+	// test what has been passed to StartQuery
+	expectedInput := &cloudwatchlogs.StartQueryInput{
+		StartTime:     aws.Int64(now.Add(-3 * time.Minute).Unix()),
+		EndTime:       aws.Int64(now.Unix()),
+		LogGroupNames: aws.StringSlice([]string{"/log/foo", "/log/baz"}),
+		QueryString:   aws.String("filter @message like /omg/"),
+		Limit:         aws.Int64(1),
+	}
+	if !reflect.DeepEqual(svc.latestStartQueryInput, expectedInput) {
+		t.Errorf("%v was passed to StartQuery, want %v", svc.latestStartQueryInput, expectedInput)
+	}
+
+	// test whether stateFile is updated
 	cnt, _ := ioutil.ReadFile(file.Name())
 	var s logState
 	err = json.NewDecoder(bytes.NewReader(cnt)).Decode(&s)
