@@ -464,6 +464,7 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 				t.Errorf("awsCWLogsInsightsPlugin.searchLogs() = %v, want %v", got, tt.want)
 			}
 			startQueryMock.Arguments.Assert(t, tt.wantInput)
+			svc.AssertExpectations(t)
 
 			// test whether stateFile is updated
 			cnt, _ := ioutil.ReadFile(file.Name())
