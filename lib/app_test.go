@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"io/ioutil"
 	"os"
 	"reflect"
@@ -15,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs/cloudwatchlogsiface"
 	"github.com/mackerelio/checkers"
+	"github.com/stretchr/testify/mock"
 )
 
 func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
@@ -157,29 +157,25 @@ func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
 
 type mockAWSCloudWatchLogsClient struct {
 	cloudwatchlogsiface.CloudWatchLogsAPI
-	// responses. you need to set desired response
-	startQueryOutput       *cloudwatchlogs.StartQueryOutput
-	getQueryResultsOutputs map[string]*cloudwatchlogs.GetQueryResultsOutput
-
-	latestStartQueryInput *cloudwatchlogs.StartQueryInput
+	mock.Mock
 }
 
 func (c *mockAWSCloudWatchLogsClient) StartQuery(input *cloudwatchlogs.StartQueryInput) (*cloudwatchlogs.StartQueryOutput, error) {
-	c.latestStartQueryInput = input
-	if res := c.startQueryOutput; res != nil {
-		return res, nil
+	args := c.Called(input)
+	res := args.Get(0)
+	if res != nil {
+		return args.Get(0).(*cloudwatchlogs.StartQueryOutput), args.Error(1)
 	}
-	return nil, errors.New("failed to start")
+	return nil, args.Error(1)
 }
 
 func (c *mockAWSCloudWatchLogsClient) GetQueryResults(input *cloudwatchlogs.GetQueryResultsInput) (*cloudwatchlogs.GetQueryResultsOutput, error) {
-	if input.QueryId == nil {
-		return c.getQueryResultsOutputs[""], nil
+	args := c.Called(input)
+	res := args.Get(0)
+	if res != nil {
+		return args.Get(0).(*cloudwatchlogs.GetQueryResultsOutput), args.Error(1)
 	}
-	if out, ok := c.getQueryResultsOutputs[*input.QueryId]; ok {
-		return out, nil
-	}
-	return nil, errors.New("invalid QueryId")
+	return nil, args.Error(1)
 }
 
 func Test_parseResult(t *testing.T) {
@@ -308,12 +304,12 @@ func Test_parseResult(t *testing.T) {
 func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 	now := time.Now()
 	type fields struct {
-		Service *mockAWSCloudWatchLogsClient
 		logOpts *logOpts
 	}
 	tests := []struct {
 		name             string
 		fields           fields
+		responses        []*cloudwatchlogs.GetQueryResultsOutput
 		logState         *logState // when nil, remove stateFile
 		want             *ParsedQueryResults
 		wantErr          bool
@@ -323,23 +319,18 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 		{
 			name: "without state file",
 			fields: fields{
-				Service: &mockAWSCloudWatchLogsClient{
-					startQueryOutput: &cloudwatchlogs.StartQueryOutput{
-						QueryId: aws.String("DUMMY-QUERY-ID"),
-					},
-					getQueryResultsOutputs: map[string]*cloudwatchlogs.GetQueryResultsOutput{
-						"DUMMY-QUERY-ID": {
-							Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
-							Results: [][]*cloudwatchlogs.ResultField{},
-							Statistics: &cloudwatchlogs.QueryStatistics{
-								RecordsMatched: aws.Float64(6),
-							},
-						},
-					},
-				},
 				logOpts: &logOpts{
 					LogGroupNames: []string{"/log/foo", "/log/baz"},
 					Filter:        "filter @message like /omg/",
+				},
+			},
+			responses: []*cloudwatchlogs.GetQueryResultsOutput{
+				{
+					Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
+					Results: [][]*cloudwatchlogs.ResultField{},
+					Statistics: &cloudwatchlogs.QueryStatistics{
+						RecordsMatched: aws.Float64(6),
+					},
 				},
 			},
 			logState: nil,
@@ -362,23 +353,18 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 		{
 			name: "with state file",
 			fields: fields{
-				Service: &mockAWSCloudWatchLogsClient{
-					startQueryOutput: &cloudwatchlogs.StartQueryOutput{
-						QueryId: aws.String("DUMMY-QUERY-ID"),
-					},
-					getQueryResultsOutputs: map[string]*cloudwatchlogs.GetQueryResultsOutput{
-						"DUMMY-QUERY-ID": {
-							Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
-							Results: [][]*cloudwatchlogs.ResultField{},
-							Statistics: &cloudwatchlogs.QueryStatistics{
-								RecordsMatched: aws.Float64(6),
-							},
-						},
-					},
-				},
 				logOpts: &logOpts{
 					LogGroupNames: []string{"/log/foo", "/log/baz"},
 					Filter:        "filter @message like /omg/",
+				},
+			},
+			responses: []*cloudwatchlogs.GetQueryResultsOutput{
+				{
+					Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
+					Results: [][]*cloudwatchlogs.ResultField{},
+					Statistics: &cloudwatchlogs.QueryStatistics{
+						RecordsMatched: aws.Float64(6),
+					},
 				},
 			},
 			logState: &logState{
@@ -403,31 +389,26 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 		{
 			name: "with ReturnMessage: true",
 			fields: fields{
-				Service: &mockAWSCloudWatchLogsClient{
-					startQueryOutput: &cloudwatchlogs.StartQueryOutput{
-						QueryId: aws.String("DUMMY-QUERY-ID"),
-					},
-					getQueryResultsOutputs: map[string]*cloudwatchlogs.GetQueryResultsOutput{
-						"DUMMY-QUERY-ID": {
-							Status: aws.String(cloudwatchlogs.QueryStatusComplete),
-							Results: [][]*cloudwatchlogs.ResultField{
-								{
-									{
-										Field: aws.String("earliest(@message)"),
-										Value: aws.String("omg something happend"),
-									},
-								},
-							},
-							Statistics: &cloudwatchlogs.QueryStatistics{
-								RecordsMatched: aws.Float64(6),
-							},
-						},
-					},
-				},
 				logOpts: &logOpts{
 					LogGroupNames: []string{"/log/foo", "/log/baz"},
 					Filter:        "filter @message like /omg/",
 					ReturnMessage: true,
+				},
+			},
+			responses: []*cloudwatchlogs.GetQueryResultsOutput{
+				{
+					Status: aws.String(cloudwatchlogs.QueryStatusComplete),
+					Results: [][]*cloudwatchlogs.ResultField{
+						{
+							{
+								Field: aws.String("earliest(@message)"),
+								Value: aws.String("omg something happend"),
+							},
+						},
+					},
+					Statistics: &cloudwatchlogs.QueryStatistics{
+						RecordsMatched: aws.Float64(6),
+					},
 				},
 			},
 			logState: nil,
@@ -462,8 +443,15 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			file.Close()
 			defer os.Remove(file.Name())
 
+			svc := &mockAWSCloudWatchLogsClient{}
+			startQueryMock := svc.On("StartQuery", mock.AnythingOfType("*cloudwatchlogs.StartQueryInput")).Return(&cloudwatchlogs.StartQueryOutput{
+				QueryId: aws.String("DUMMY-QUERY-ID"),
+			}, nil)
+			for _, r := range tt.responses {
+				svc.On("GetQueryResults", mock.AnythingOfType("*cloudwatchlogs.GetQueryResultsInput")).Return(r, nil).Once()
+			}
 			p := &awsCWLogsInsightsPlugin{
-				Service:   tt.fields.Service,
+				Service:   svc,
 				StateFile: file.Name(),
 				logOpts:   tt.fields.logOpts,
 			}
@@ -475,9 +463,7 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("awsCWLogsInsightsPlugin.searchLogs() = %v, want %v", got, tt.want)
 			}
-			if !reflect.DeepEqual(tt.fields.Service.latestStartQueryInput, tt.wantInput) {
-				t.Errorf("%v was passed to StartQuery, want %v", tt.fields.Service.latestStartQueryInput, tt.wantInput)
-			}
+			startQueryMock.Arguments.Assert(t, tt.wantInput)
 
 			// test whether stateFile is updated
 			cnt, _ := ioutil.ReadFile(file.Name())
