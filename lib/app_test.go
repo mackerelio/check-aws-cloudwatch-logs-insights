@@ -536,7 +536,7 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 				StateFile: file.Name(),
 				logOpts:   tt.fields.logOpts,
 			}
-			got, err := p.searchLogs(context.TODO(), now)
+			got, err := p.searchLogs(context.TODO(), now, time.Millisecond)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("awsCWLogsInsightsPlugin.searchLogs() error = %v, wantErr %v", err, tt.wantErr)
 				return

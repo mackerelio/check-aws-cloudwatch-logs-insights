@@ -89,7 +89,7 @@ func (p *awsCWLogsInsightsPlugin) buildChecker(res *ParsedQueryResults) *checker
 	return checkers.NewChecker(status, msg)
 }
 
-func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimestamp time.Time) (*ParsedQueryResults, error) {
+func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimestamp time.Time, interval time.Duration) (*ParsedQueryResults, error) {
 	// Default behavior: search in recent 3 minutes
 	endTime := currentTimestamp
 	startTime := endTime.Add(-3 * time.Minute)
@@ -112,7 +112,7 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimesta
 	if err != nil {
 		return nil, fmt.Errorf("failed to start query: %w", err)
 	}
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
 		select {
@@ -284,7 +284,7 @@ func (p *awsCWLogsInsightsPlugin) saveState(s *logState) error {
 
 func (p *awsCWLogsInsightsPlugin) run(ctx context.Context) *checkers.Checker {
 	now := time.Now()
-	res, err := p.searchLogs(ctx, now)
+	res, err := p.searchLogs(ctx, now, 1*time.Second)
 	if err != nil {
 		return checkers.Unknown(err.Error())
 	}
