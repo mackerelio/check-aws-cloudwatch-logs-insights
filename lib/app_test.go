@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"os"
 	"reflect"
@@ -429,6 +430,80 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 				Limit:         aws.Int64(1),
 			},
 		},
+		{
+			name: "GetQueryResults running => completed",
+			fields: fields{
+				logOpts: &logOpts{
+					LogGroupNames: []string{"/log/foo", "/log/baz"},
+					Filter:        "filter @message like /omg/",
+				},
+			},
+			responses: []*cloudwatchlogs.GetQueryResultsOutput{
+				{
+					Status:     aws.String(cloudwatchlogs.QueryStatusRunning),
+					Results:    [][]*cloudwatchlogs.ResultField{},
+					Statistics: &cloudwatchlogs.QueryStatistics{},
+				},
+				{
+					Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
+					Results: [][]*cloudwatchlogs.ResultField{},
+					Statistics: &cloudwatchlogs.QueryStatistics{
+						RecordsMatched: aws.Float64(6),
+					},
+				},
+			},
+			logState: nil,
+			want: &ParsedQueryResults{
+				Finished:     true,
+				MatchedCount: 6,
+			},
+			wantErr: false,
+			wantNextLogState: &logState{
+				QueryStartedAt: now.Unix(),
+			},
+			wantInput: &cloudwatchlogs.StartQueryInput{
+				StartTime:     aws.Int64(now.Add(-3 * time.Minute).Unix()),
+				EndTime:       aws.Int64(now.Unix()),
+				LogGroupNames: aws.StringSlice([]string{"/log/foo", "/log/baz"}),
+				QueryString:   aws.String("filter @message like /omg/"),
+				Limit:         aws.Int64(1),
+			},
+		},
+		{
+			name: "GetQueryResults API error => copmleted",
+			fields: fields{
+				logOpts: &logOpts{
+					LogGroupNames: []string{"/log/foo", "/log/baz"},
+					Filter:        "filter @message like /omg/",
+				},
+			},
+			responses: []*cloudwatchlogs.GetQueryResultsOutput{
+				nil,
+				{
+					Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
+					Results: [][]*cloudwatchlogs.ResultField{},
+					Statistics: &cloudwatchlogs.QueryStatistics{
+						RecordsMatched: aws.Float64(6),
+					},
+				},
+			},
+			logState: nil,
+			want: &ParsedQueryResults{
+				Finished:     true,
+				MatchedCount: 6,
+			},
+			wantErr: false,
+			wantNextLogState: &logState{
+				QueryStartedAt: now.Unix(),
+			},
+			wantInput: &cloudwatchlogs.StartQueryInput{
+				StartTime:     aws.Int64(now.Add(-3 * time.Minute).Unix()),
+				EndTime:       aws.Int64(now.Unix()),
+				LogGroupNames: aws.StringSlice([]string{"/log/foo", "/log/baz"}),
+				QueryString:   aws.String("filter @message like /omg/"),
+				Limit:         aws.Int64(1),
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -448,7 +523,13 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 				QueryId: aws.String("DUMMY-QUERY-ID"),
 			}, nil)
 			for _, r := range tt.responses {
-				svc.On("GetQueryResults", mock.AnythingOfType("*cloudwatchlogs.GetQueryResultsInput")).Return(r, nil).Once()
+				call := svc.On("GetQueryResults", mock.AnythingOfType("*cloudwatchlogs.GetQueryResultsInput"))
+				if r != nil {
+					call.Return(r, nil).Once()
+				} else {
+					// return some error instead
+					call.Return(nil, errors.New("failed to get")).Once()
+				}
 			}
 			p := &awsCWLogsInsightsPlugin{
 				Service:   svc,
