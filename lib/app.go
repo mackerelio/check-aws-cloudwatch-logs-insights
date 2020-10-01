@@ -102,12 +102,12 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimesta
 		return nil, fmt.Errorf("failed to load plugin state: %w", err)
 	}
 	if lastState != nil && lastState.QueryStartedAt != 0 {
-		startTime = time.Unix(lastState.QueryStartedAt, 0).Add(-2 * time.Minute)
-		// prevent too long duration.
-		// Max 60 minutes (+ extra 2 minutes for delay)
-		if startTime.Add(62 * time.Minute).Before(endTime) {
-			logger.Infof("ignoring stateFile since is's too old")
-			startTime = endTime.Add(-62 * time.Minute)
+		lastQueryStartedAt := time.Unix(lastState.QueryStartedAt, 0)
+		// prevent too long duration
+		if lastQueryStartedAt.Add(60 * time.Minute).Before(endTime) {
+			logger.Warningf("ignoring stateFile since is's too old")
+		} else {
+			startTime = time.Unix(lastState.QueryStartedAt, 0).Add(-2 * time.Minute)
 		}
 	}
 

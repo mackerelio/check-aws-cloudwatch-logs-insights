@@ -403,13 +403,7 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			wantNextLogState: &logState{
 				QueryStartedAt: now.Unix(),
 			},
-			wantInput: &cloudwatchlogs.StartQueryInput{
-				StartTime:     aws.Int64(now.Add(-60 * time.Minute).Unix()), // capped to 60 (+2)
-				EndTime:       aws.Int64(now.Unix()),
-				LogGroupNames: aws.StringSlice([]string{"/log/foo", "/log/baz"}),
-				QueryString:   aws.String("filter @message like /omg/"),
-				Limit:         aws.Int64(1),
-			},
+			wantInput: defaultWantInput, // QueryStartedAt is ignored
 		}, {
 			name: "with ReturnMessage: true",
 			fields: fields{
