@@ -189,7 +189,8 @@ func (p *awsCWLogsInsightsPlugin) getQueryResults(queryID *string) (*cloudwatchl
 
 // ParsedQueryResults is a result
 type ParsedQueryResults struct {
-	Finished        bool
+	Finished        bool // TODO: rename to `Pending`
+	FailureReason   string
 	MatchedCount    int
 	ReturnedMessage string
 }
@@ -203,8 +204,15 @@ func parseResult(out *cloudwatchlogs.GetQueryResultsOutput) (*ParsedQueryResults
 
 	res := &ParsedQueryResults{}
 	switch *out.Status {
-	case cloudwatchlogs.QueryStatusComplete, cloudwatchlogs.QueryStatusFailed, cloudwatchlogs.QueryStatusCancelled:
+	case cloudwatchlogs.QueryStatusComplete:
 		res.Finished = true
+	case cloudwatchlogs.QueryStatusFailed, cloudwatchlogs.QueryStatusCancelled:
+		res.Finished = true
+		res.FailureReason = fmt.Sprintf("query was finished with `%s` status", *out.Status)
+	case cloudwatchlogs.QueryStatusRunning, cloudwatchlogs.QueryStatusScheduled:
+		res.Finished = false
+	default:
+		return nil, fmt.Errorf("unexpected QueryStatus: %s", *out.Status)
 	}
 
 	if out.Statistics != nil && out.Statistics.RecordsMatched != nil {

@@ -226,8 +226,9 @@ func Test_parseResult(t *testing.T) {
 				},
 			},
 			wantRes: &ParsedQueryResults{
-				Finished:     true, // failed
-				MatchedCount: 0,
+				Finished:      true, // failed
+				FailureReason: "query was finished with `Failed` status",
+				MatchedCount:  0,
 			},
 			wantErr: false,
 		},
@@ -243,8 +244,9 @@ func Test_parseResult(t *testing.T) {
 				},
 			},
 			wantRes: &ParsedQueryResults{
-				Finished:     true, // cancelled
-				MatchedCount: 25,
+				Finished:      true, // cancelled
+				FailureReason: "query was finished with `Cancelled` status",
+				MatchedCount:  25,
 			},
 			wantErr: false,
 		},
