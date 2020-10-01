@@ -163,20 +163,14 @@ type mockAWSCloudWatchLogsClient struct {
 
 func (c *mockAWSCloudWatchLogsClient) StartQuery(input *cloudwatchlogs.StartQueryInput) (*cloudwatchlogs.StartQueryOutput, error) {
 	args := c.Called(input)
-	res := args.Get(0)
-	if res != nil {
-		return args.Get(0).(*cloudwatchlogs.StartQueryOutput), args.Error(1)
-	}
-	return nil, args.Error(1)
+	res, _ := args.Get(0).(*cloudwatchlogs.StartQueryOutput)
+	return res, args.Error(1)
 }
 
 func (c *mockAWSCloudWatchLogsClient) GetQueryResults(input *cloudwatchlogs.GetQueryResultsInput) (*cloudwatchlogs.GetQueryResultsOutput, error) {
 	args := c.Called(input)
-	res := args.Get(0)
-	if res != nil {
-		return args.Get(0).(*cloudwatchlogs.GetQueryResultsOutput), args.Error(1)
-	}
-	return nil, args.Error(1)
+	res, _ := args.Get(0).(*cloudwatchlogs.GetQueryResultsOutput)
+	return res, args.Error(1)
 }
 
 func Test_parseResult(t *testing.T) {
