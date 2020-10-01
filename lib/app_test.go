@@ -560,7 +560,7 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			defer os.Remove(file.Name())
 
 			svc := &mockAWSCloudWatchLogsClient{}
-			startQueryMock := svc.On("StartQuery", mock.AnythingOfType("*cloudwatchlogs.StartQueryInput")).Return(&cloudwatchlogs.StartQueryOutput{
+			svc.On("StartQuery", tt.wantInput).Return(&cloudwatchlogs.StartQueryOutput{
 				QueryId: aws.String("DUMMY-QUERY-ID"),
 			}, nil)
 			for _, r := range tt.responses {
@@ -585,7 +585,6 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("awsCWLogsInsightsPlugin.searchLogs() = %v, want %v", got, tt.want)
 			}
-			startQueryMock.Arguments.Assert(t, tt.wantInput)
 			svc.AssertExpectations(t)
 
 			// test whether stateFile is updated
