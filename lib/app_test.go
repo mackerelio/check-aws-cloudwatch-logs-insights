@@ -424,6 +424,24 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			},
 		},
 		{
+			name:   "GetQueryResults failed",
+			fields: defaultFields,
+			responses: []*cloudwatchlogs.GetQueryResultsOutput{
+				{
+					Status:     aws.String(cloudwatchlogs.QueryStatusFailed),
+					Results:    [][]*cloudwatchlogs.ResultField{},
+					Statistics: &cloudwatchlogs.QueryStatistics{},
+				},
+			},
+			logState: nil,
+			want:     nil,
+			wantErr:  true,
+			wantNextLogState: &logState{
+				QueryStartedAt: now.Unix(),
+			},
+			wantInput: defaultWantInput,
+		},
+		{
 			name:   "GetQueryResults running => completed",
 			fields: defaultFields,
 			responses: []*cloudwatchlogs.GetQueryResultsOutput{

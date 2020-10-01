@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -137,20 +138,24 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimesta
 				continue
 			}
 			res, err := parseResult(out)
-			logger.Debugf("Query finished! got result: %v", out)
 			if err != nil {
-				if saveStateErr := p.saveState(nextState); saveStateErr != nil {
-					logger.Errorf("failed to save state file: %v", saveStateErr)
-				}
-				return nil, fmt.Errorf("failed to get query results: %w", err)
+				logger.Warningf("failed to parse GetQueryResults response (will retry): %v", err)
+				continue
 			}
-			if res.Finished {
-				if saveStateErr := p.saveState(nextState); saveStateErr != nil {
-					return nil, fmt.Errorf("failed to save state file: %w", saveStateErr)
-				}
-				return res, nil
+			if !res.Finished {
+				logger.Debugf("Query not finished. Will wait a while...")
+				continue
 			}
-			logger.Debugf("Query not finished. Will wait a while...")
+			logger.Debugf("Query finished! got result: %v", out)
+			saveStateErr := p.saveState(nextState)
+			if res.FailureReason != "" {
+				logger.Errorf("failed to save state file: %v", saveStateErr)
+				return nil, errors.New(res.FailureReason)
+			}
+			if saveStateErr != nil {
+				return nil, fmt.Errorf("failed to save state file: %w", saveStateErr)
+			}
+			return res, nil
 		}
 	}
 }
