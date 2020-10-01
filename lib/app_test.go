@@ -381,6 +381,36 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			},
 		},
 		{
+			name:   "too old stateFile",
+			fields: defaultFields,
+			responses: []*cloudwatchlogs.GetQueryResultsOutput{
+				{
+					Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
+					Results: [][]*cloudwatchlogs.ResultField{},
+					Statistics: &cloudwatchlogs.QueryStatistics{
+						RecordsMatched: aws.Float64(6),
+					},
+				},
+			},
+			logState: &logState{
+				QueryStartedAt: now.Add(-365 * time.Minute).Unix(), // too old
+			},
+			want: &ParsedQueryResults{
+				Finished:     true,
+				MatchedCount: 6,
+			},
+			wantErr: false,
+			wantNextLogState: &logState{
+				QueryStartedAt: now.Unix(),
+			},
+			wantInput: &cloudwatchlogs.StartQueryInput{
+				StartTime:     aws.Int64(now.Add(-60 * time.Minute).Unix()), // capped to 60 (+2)
+				EndTime:       aws.Int64(now.Unix()),
+				LogGroupNames: aws.StringSlice([]string{"/log/foo", "/log/baz"}),
+				QueryString:   aws.String("filter @message like /omg/"),
+				Limit:         aws.Int64(1),
+			},
+		}, {
 			name: "with ReturnMessage: true",
 			fields: fields{
 				logOpts: &logOpts{

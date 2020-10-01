@@ -103,6 +103,11 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimesta
 	}
 	if lastState != nil && lastState.QueryStartedAt != 0 {
 		startTime = time.Unix(lastState.QueryStartedAt, 0).Add(-2 * time.Minute)
+		// prevent too long duration.
+		// Max 60 minutes (+ extra 2 minutes for delay)
+		if startTime.Add(62 * time.Minute).Before(endTime) {
+			startTime = endTime.Add(-62 * time.Minute)
+		}
 	}
 
 	nextState := &logState{
