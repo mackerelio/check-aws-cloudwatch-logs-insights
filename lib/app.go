@@ -106,6 +106,7 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimesta
 		// prevent too long duration.
 		// Max 60 minutes (+ extra 2 minutes for delay)
 		if startTime.Add(62 * time.Minute).Before(endTime) {
+			logger.Infof("ignoring stateFile since is's too old")
 			startTime = endTime.Add(-62 * time.Minute)
 		}
 	}
