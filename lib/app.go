@@ -200,7 +200,7 @@ func (p *awsCWLogsInsightsPlugin) getQueryResults(queryID *string) (*cloudwatchl
 
 // ParsedQueryResults is a result
 type ParsedQueryResults struct {
-	Finished        bool // TODO: rename to `Pending`
+	Finished        bool
 	FailureReason   string
 	MatchedCount    int
 	ReturnedMessage string
