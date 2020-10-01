@@ -475,6 +475,34 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			},
 			wantInput: defaultWantInput,
 		},
+		{
+			name:   "GetQueryResults malformed response => copmleted",
+			fields: defaultFields,
+			responses: []*cloudwatchlogs.GetQueryResultsOutput{
+				{
+					Status:     nil, // malformed
+					Results:    [][]*cloudwatchlogs.ResultField{},
+					Statistics: &cloudwatchlogs.QueryStatistics{},
+				},
+				{
+					Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
+					Results: [][]*cloudwatchlogs.ResultField{},
+					Statistics: &cloudwatchlogs.QueryStatistics{
+						RecordsMatched: aws.Float64(6),
+					},
+				},
+			},
+			logState: nil,
+			want: &ParsedQueryResults{
+				Finished:     true,
+				MatchedCount: 6,
+			},
+			wantErr: false,
+			wantNextLogState: &logState{
+				QueryStartedAt: now.Unix(),
+			},
+			wantInput: defaultWantInput,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -137,14 +137,14 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimesta
 				continue
 			}
 			res, err := parseResult(out)
-			if res.Finished {
-				logger.Debugf("Query finished! got result: %v", out)
-				if err != nil {
-					if saveStateErr := p.saveState(nextState); saveStateErr != nil {
-						logger.Errorf("failed to save state file: %v", saveStateErr)
-					}
-					return nil, fmt.Errorf("failed to get query results: %w", err)
+			logger.Debugf("Query finished! got result: %v", out)
+			if err != nil {
+				if saveStateErr := p.saveState(nextState); saveStateErr != nil {
+					logger.Errorf("failed to save state file: %v", saveStateErr)
 				}
+				return nil, fmt.Errorf("failed to get query results: %w", err)
+			}
+			if res.Finished {
 				if saveStateErr := p.saveState(nextState); saveStateErr != nil {
 					return nil, fmt.Errorf("failed to save state file: %w", saveStateErr)
 				}
