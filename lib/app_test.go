@@ -303,6 +303,19 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 	type fields struct {
 		logOpts *logOpts
 	}
+	defaultFields := fields{
+		logOpts: &logOpts{
+			LogGroupNames: []string{"/log/foo", "/log/baz"},
+			Filter:        "filter @message like /omg/",
+		},
+	}
+	defaultWantInput := &cloudwatchlogs.StartQueryInput{
+		StartTime:     aws.Int64(now.Add(-3 * time.Minute).Unix()),
+		EndTime:       aws.Int64(now.Unix()),
+		LogGroupNames: aws.StringSlice([]string{"/log/foo", "/log/baz"}),
+		QueryString:   aws.String("filter @message like /omg/"),
+		Limit:         aws.Int64(1),
+	}
 	tests := []struct {
 		name             string
 		fields           fields
@@ -314,13 +327,8 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 		wantInput        *cloudwatchlogs.StartQueryInput
 	}{
 		{
-			name: "without state file",
-			fields: fields{
-				logOpts: &logOpts{
-					LogGroupNames: []string{"/log/foo", "/log/baz"},
-					Filter:        "filter @message like /omg/",
-				},
-			},
+			name:   "without state file",
+			fields: defaultFields,
 			responses: []*cloudwatchlogs.GetQueryResultsOutput{
 				{
 					Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
@@ -339,22 +347,11 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			wantNextLogState: &logState{
 				QueryStartedAt: now.Unix(),
 			},
-			wantInput: &cloudwatchlogs.StartQueryInput{
-				StartTime:     aws.Int64(now.Add(-3 * time.Minute).Unix()),
-				EndTime:       aws.Int64(now.Unix()),
-				LogGroupNames: aws.StringSlice([]string{"/log/foo", "/log/baz"}),
-				QueryString:   aws.String("filter @message like /omg/"),
-				Limit:         aws.Int64(1),
-			},
+			wantInput: defaultWantInput,
 		},
 		{
-			name: "with state file",
-			fields: fields{
-				logOpts: &logOpts{
-					LogGroupNames: []string{"/log/foo", "/log/baz"},
-					Filter:        "filter @message like /omg/",
-				},
-			},
+			name:   "with state file",
+			fields: defaultFields,
 			responses: []*cloudwatchlogs.GetQueryResultsOutput{
 				{
 					Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
@@ -427,13 +424,8 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			},
 		},
 		{
-			name: "GetQueryResults running => completed",
-			fields: fields{
-				logOpts: &logOpts{
-					LogGroupNames: []string{"/log/foo", "/log/baz"},
-					Filter:        "filter @message like /omg/",
-				},
-			},
+			name:   "GetQueryResults running => completed",
+			fields: defaultFields,
 			responses: []*cloudwatchlogs.GetQueryResultsOutput{
 				{
 					Status:     aws.String(cloudwatchlogs.QueryStatusRunning),
@@ -457,22 +449,11 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			wantNextLogState: &logState{
 				QueryStartedAt: now.Unix(),
 			},
-			wantInput: &cloudwatchlogs.StartQueryInput{
-				StartTime:     aws.Int64(now.Add(-3 * time.Minute).Unix()),
-				EndTime:       aws.Int64(now.Unix()),
-				LogGroupNames: aws.StringSlice([]string{"/log/foo", "/log/baz"}),
-				QueryString:   aws.String("filter @message like /omg/"),
-				Limit:         aws.Int64(1),
-			},
+			wantInput: defaultWantInput,
 		},
 		{
-			name: "GetQueryResults API error => copmleted",
-			fields: fields{
-				logOpts: &logOpts{
-					LogGroupNames: []string{"/log/foo", "/log/baz"},
-					Filter:        "filter @message like /omg/",
-				},
-			},
+			name:   "GetQueryResults API error => copmleted",
+			fields: defaultFields,
 			responses: []*cloudwatchlogs.GetQueryResultsOutput{
 				nil,
 				{
@@ -492,13 +473,7 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			wantNextLogState: &logState{
 				QueryStartedAt: now.Unix(),
 			},
-			wantInput: &cloudwatchlogs.StartQueryInput{
-				StartTime:     aws.Int64(now.Add(-3 * time.Minute).Unix()),
-				EndTime:       aws.Int64(now.Unix()),
-				LogGroupNames: aws.StringSlice([]string{"/log/foo", "/log/baz"}),
-				QueryString:   aws.String("filter @message like /omg/"),
-				Limit:         aws.Int64(1),
-			},
+			wantInput: defaultWantInput,
 		},
 	}
 	for _, tt := range tests {
