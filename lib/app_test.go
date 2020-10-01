@@ -494,7 +494,7 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			wantInput: defaultWantInput,
 		},
 		{
-			name:   "GetQueryResults API error => copmleted",
+			name:   "GetQueryResults API error => completed",
 			fields: defaultFields,
 			responses: []*cloudwatchlogs.GetQueryResultsOutput{
 				nil,
@@ -518,7 +518,7 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			wantInput: defaultWantInput,
 		},
 		{
-			name:   "GetQueryResults malformed response => copmleted",
+			name:   "GetQueryResults malformed response => completed",
 			fields: defaultFields,
 			responses: []*cloudwatchlogs.GetQueryResultsOutput{
 				{
