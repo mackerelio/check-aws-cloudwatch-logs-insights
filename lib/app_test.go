@@ -310,8 +310,8 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 		},
 	}
 	defaultWantInput := &cloudwatchlogs.StartQueryInput{
-		StartTime:     aws.Int64(now.Add(-3 * time.Minute).Unix()),
-		EndTime:       aws.Int64(now.Unix()),
+		StartTime:     aws.Int64(now.Add(-6 * time.Minute).Unix()),
+		EndTime:       aws.Int64(now.Add(-5 * time.Minute).Unix()),
 		LogGroupNames: aws.StringSlice([]string{"/log/foo", "/log/baz"}),
 		QueryString:   aws.String("filter @message like /omg/"),
 		Limit:         aws.Int64(1),
@@ -345,7 +345,7 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			},
 			wantErr: false,
 			wantNextLogState: &logState{
-				QueryStartedAt: now.Unix(),
+				EndTime: now.Add(-5 * time.Minute).Unix(),
 			},
 			wantInput: defaultWantInput,
 		},
@@ -362,7 +362,7 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 				},
 			},
 			logState: &logState{
-				QueryStartedAt: now.Add(-42 * time.Minute).Unix(),
+				EndTime: now.Add(-42 * time.Minute).Unix(),
 			},
 			want: &ParsedQueryResults{
 				Finished:     true,
@@ -370,11 +370,11 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			},
 			wantErr: false,
 			wantNextLogState: &logState{
-				QueryStartedAt: now.Unix(),
+				EndTime: now.Add(-5 * time.Minute).Unix(),
 			},
 			wantInput: &cloudwatchlogs.StartQueryInput{
-				StartTime:     aws.Int64(now.Add(-44 * time.Minute).Unix()), // -42 - 2
-				EndTime:       aws.Int64(now.Unix()),
+				StartTime:     aws.Int64(now.Add(-42 * time.Minute).Unix()),
+				EndTime:       aws.Int64(now.Add(-5 * time.Minute).Unix()),
 				LogGroupNames: aws.StringSlice([]string{"/log/foo", "/log/baz"}),
 				QueryString:   aws.String("filter @message like /omg/"),
 				Limit:         aws.Int64(1),
@@ -393,7 +393,7 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 				},
 			},
 			logState: &logState{
-				QueryStartedAt: now.Add(-365 * time.Minute).Unix(), // too old
+				EndTime: now.Add(-365 * time.Minute).Unix(), // too old
 			},
 			want: &ParsedQueryResults{
 				Finished:     true,
@@ -401,7 +401,7 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			},
 			wantErr: false,
 			wantNextLogState: &logState{
-				QueryStartedAt: now.Unix(),
+				EndTime: now.Add(-5 * time.Minute).Unix(),
 			},
 			wantInput: defaultWantInput, // QueryStartedAt is ignored
 		}, {
@@ -437,11 +437,11 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			},
 			wantErr: false,
 			wantNextLogState: &logState{
-				QueryStartedAt: now.Unix(),
+				EndTime: now.Add(-5 * time.Minute).Unix(),
 			},
 			wantInput: &cloudwatchlogs.StartQueryInput{
-				StartTime:     aws.Int64(now.Add(-3 * time.Minute).Unix()),
-				EndTime:       aws.Int64(now.Unix()),
+				StartTime:     aws.Int64(now.Add(-6 * time.Minute).Unix()),
+				EndTime:       aws.Int64(now.Add(-5 * time.Minute).Unix()),
 				LogGroupNames: aws.StringSlice([]string{"/log/foo", "/log/baz"}),
 				QueryString:   aws.String("filter @message like /omg/| stats earliest(@message)"),
 				Limit:         aws.Int64(1),
@@ -461,7 +461,7 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			want:     nil,
 			wantErr:  true,
 			wantNextLogState: &logState{
-				QueryStartedAt: now.Unix(),
+				EndTime: now.Add(-5 * time.Minute).Unix(),
 			},
 			wantInput: defaultWantInput,
 		},
@@ -489,7 +489,7 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			},
 			wantErr: false,
 			wantNextLogState: &logState{
-				QueryStartedAt: now.Unix(),
+				EndTime: now.Add(-5 * time.Minute).Unix(),
 			},
 			wantInput: defaultWantInput,
 		},
@@ -513,7 +513,7 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			},
 			wantErr: false,
 			wantNextLogState: &logState{
-				QueryStartedAt: now.Unix(),
+				EndTime: now.Add(-5 * time.Minute).Unix(),
 			},
 			wantInput: defaultWantInput,
 		},
@@ -541,7 +541,7 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			},
 			wantErr: false,
 			wantNextLogState: &logState{
-				QueryStartedAt: now.Unix(),
+				EndTime: now.Add(-5 * time.Minute).Unix(),
 			},
 			wantInput: defaultWantInput,
 		},

@@ -91,28 +91,27 @@ func (p *awsCWLogsInsightsPlugin) buildChecker(res *ParsedQueryResults) *checker
 }
 
 func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimestamp time.Time, interval time.Duration) (*ParsedQueryResults, error) {
-	// Default behavior: search in recent 3 minutes
-	endTime := currentTimestamp
-	startTime := endTime.Add(-3 * time.Minute)
+	// Considering delay in CloudWatch Logs Insights, endTime is 5 minutes prior current timestamp
+	endTime := currentTimestamp.Add(-5 * time.Minute)
+	startTime := endTime.Add(-1 * time.Minute)
 
-	// If state file found, consider previous QueryStartedAt
-	// (Add extra 2 minutes onsidering delay in CloudWatch Logs Insights)
+	// If state file found, set startTime to last endTime
 	lastState, err := p.loadState()
 	if err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("failed to load plugin state: %w", err)
 	}
-	if lastState != nil && lastState.QueryStartedAt != 0 {
-		lastQueryStartedAt := time.Unix(lastState.QueryStartedAt, 0)
+	if lastState != nil && lastState.EndTime != 0 {
+		lastEndTime := time.Unix(lastState.EndTime, 0)
 		// prevent too long duration
-		if lastQueryStartedAt.Add(60 * time.Minute).Before(endTime) {
+		if lastEndTime.Add(60 * time.Minute).Before(endTime) {
 			logger.Warningf("ignoring stateFile since is's too old")
 		} else {
-			startTime = time.Unix(lastState.QueryStartedAt, 0).Add(-2 * time.Minute)
+			startTime = lastEndTime
 		}
 	}
 
 	nextState := &logState{
-		QueryStartedAt: currentTimestamp.Unix(),
+		EndTime: endTime.Unix(),
 	}
 
 	queryID, err := p.startQuery(startTime, endTime)
@@ -252,7 +251,7 @@ func (p *awsCWLogsInsightsPlugin) stopQuery(queryID *string) error {
 }
 
 type logState struct {
-	QueryStartedAt int64
+	EndTime int64
 }
 
 func getStateFile(stateDir string, args []string) string {
