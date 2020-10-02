@@ -29,7 +29,7 @@ var logger *logging.Logger
 
 func init() {
 	logger = logging.GetLogger("checks.plugin.aws-cloudwatch-logs-insights")
-	logging.SetLogLevel(logging.DEBUG) // TODO: disable debug log
+	logging.SetLogLevel(logging.INFO)
 }
 
 // copy from check-aws-cloudwatch-logs
