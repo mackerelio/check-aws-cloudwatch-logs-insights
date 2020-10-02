@@ -178,13 +178,15 @@ func (p *awsCWLogsInsightsPlugin) fullQuery() string {
 // startQuery calls cloudwatchlogs.StartQuery()
 // returns (queryId, error)
 func (p *awsCWLogsInsightsPlugin) startQuery(startTime, endTime time.Time) (*string, error) {
-	q, err := p.Service.StartQuery(&cloudwatchlogs.StartQueryInput{
+	input := &cloudwatchlogs.StartQueryInput{
 		EndTime:       aws.Int64(endTime.Unix()),
 		StartTime:     aws.Int64(startTime.Unix()),
 		LogGroupNames: aws.StringSlice(p.LogGroupNames),
 		QueryString:   aws.String(p.fullQuery()),
 		Limit:         aws.Int64(1),
-	})
+	}
+	logger.Debugf("start query, %v", input)
+	q, err := p.Service.StartQuery(input)
 	if err != nil {
 		return nil, err
 	}
