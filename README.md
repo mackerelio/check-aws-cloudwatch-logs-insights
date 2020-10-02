@@ -9,8 +9,12 @@ check-aws-cloudwatch-logs-insights --log-group-name /aws/lambda/sample_log_group
 ```
 
 ## Required IAM policy
-TODO: Document which IAM policies are necessasry.
 
+Following actions on the target log groups are required to perform the monitoring.
+
+- `logs:GetQueryResults`
+- `logs:StartQuery`
+- `logs:StopQuery`
 
 ## Setting for mackerel-agent
 
