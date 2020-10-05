@@ -41,6 +41,7 @@ type logOpts struct {
 	CriticalOver  int    `short:"c" long:"critical-over" value-name:"CRITICAL" description:"Trigger a critical if matched lines is over a number"`
 	StateDir      string `short:"s" long:"state-dir" value-name:"DIR" description:"Dir to keep state files under" unquote:"false"`
 	ReturnMessage bool   `short:"r" long:"return" description:"Output earliest log found with given query"`
+	Debug         bool   `long:"debug" description:"Enable debug log"`
 }
 
 type awsCWLogsInsightsPlugin struct {
@@ -324,6 +325,10 @@ func run(args []string) *checkers.Checker {
 	_, err := flags.ParseArgs(opts, args)
 	if err != nil {
 		os.Exit(1)
+	}
+
+	if opts.Debug {
+		logging.SetLogLevel(logging.DEBUG)
 	}
 	p, err := newCWLogsInsightsPlugin(opts, args)
 	if err != nil {
