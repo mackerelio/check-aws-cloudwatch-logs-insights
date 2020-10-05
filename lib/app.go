@@ -103,7 +103,7 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimesta
 	if lastState != nil && lastState.EndTime != 0 {
 		lastEndTime := time.Unix(lastState.EndTime, 0)
 		// prevent too long duration
-		if lastEndTime.Add(60 * time.Minute).Before(endTime) {
+		if lastEndTime.Add(90 * time.Minute).Before(endTime) {
 			logger.Warningf("ignoring stateFile since is's too old")
 		} else {
 			startTime = lastEndTime
