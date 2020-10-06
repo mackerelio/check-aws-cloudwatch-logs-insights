@@ -1,0 +1,16 @@
+project_name: check-aws-cloudwatch-logs-insights
+env:
+  - GO111MODULE=on
+builds:
+  - binary: check-aws-cloudwatch-logs-insights
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: darwin
+        goarch: arm64
+archives:
+  - name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}'
+    format: zip
+release:
+  prerelease: auto
