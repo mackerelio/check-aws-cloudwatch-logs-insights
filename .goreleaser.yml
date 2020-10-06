@@ -12,5 +12,6 @@ builds:
 archives:
   - name_template: '{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}'
     format: zip
+    wrap_in_directory: true
 release:
   prerelease: auto
