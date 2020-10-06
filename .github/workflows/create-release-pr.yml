@@ -1,0 +1,40 @@
+name: Create Relaese Pull Request
+
+on:
+  workflow_dispatch:
+    inputs:
+      nextVersion:
+        description: 'Next Version'
+        required: true
+        default: 'vX.Y.Z'
+jobs:
+  create-release-pull-request:
+    name: Create Release Pull Request
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: install ghch
+      run: |
+        mkdir -p ./ghch/
+        curl -fsSL https://github.com/Songmu/ghch/releases/download/${GHCH_VERSION}/ghch_${GHCH_VERSION}_linux_amd64.tar.gz | tar -xz --strip-components 1 -C ./ghch
+      env:
+        GHCH_VERSION: v0.10.2
+    - name: Generate New Changelog
+      run: |
+        ./ghch/ghch -w --next-version=${{ github.event.inputs.nextVersion }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v3
+      with:
+        # token: ${{ secrets.PERSONAL_ACCESS_TOKEN }} # TODO: Without this configuration, this p-r does not trigger another workflow (= CI)
+        branch-suffix: timestamp
+        branch: release-${{ github.event.inputs.nextVersion}}
+        commit-message: Prepare for release ${{ github.event.inputs.nextVersion}}
+        title: Release ${{ github.event.inputs.nextVersion}}
+        body: |
+          ## How to release this version
+          1. Review and modify CHANGELOG.md
+          2. Merge this pull request
+          3. `git checkout main && git pull && git tag ${{ github.event.inputs.nextVersion }} && git push --tags`
+          4. Wait a while, and check https://github.com/${{ github.repository}}/releases/tag/${{ github.event.inputs.nextVersion }}
