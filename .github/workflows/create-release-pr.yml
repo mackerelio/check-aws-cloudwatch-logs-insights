@@ -14,14 +14,16 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: install ghch
+      id: setup-ghch
       run: |
-        mkdir -p ./ghch/
-        curl -fsSL https://github.com/Songmu/ghch/releases/download/${GHCH_VERSION}/ghch_${GHCH_VERSION}_linux_amd64.tar.gz | tar -xz --strip-components 1 -C ./ghch
+        TEMPDIR=$(mktemp -d)
+        curl -fsSL https://github.com/Songmu/ghch/releases/download/${GHCH_VERSION}/ghch_${GHCH_VERSION}_linux_amd64.tar.gz | tar -xz --strip-components 1 -C $TEMPDIR
+        echo "::set-output name=ghch-path::$TEMPDIR/ghch"
       env:
         GHCH_VERSION: v0.10.2
     - name: Generate New Changelog
       run: |
-        ./ghch/ghch -w --next-version=${{ github.event.inputs.nextVersion }}
+        ${{ steps.setup-ghch.outputs.ghch-path }} -w --next-version=${{ github.event.inputs.nextVersion }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Create Pull Request
