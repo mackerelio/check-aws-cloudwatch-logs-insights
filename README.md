@@ -1,4 +1,4 @@
-# check-aws-cloudwatch-logs-insights
+# check-aws-cloudwatch-logs-insights (BETA)
 
 ## Description
 Checks Amazon CloudWatch Logs using CloudWatch Logs Insights.
