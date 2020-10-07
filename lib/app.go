@@ -86,7 +86,7 @@ func (p *awsCWLogsInsightsPlugin) buildChecker(res *ParsedQueryResults) *checker
 		msg = fmt.Sprintf("%d messages", res.MatchedCount)
 	}
 	if status != checkers.OK && p.ReturnMessage {
-		msg += "\n" + res.ReturnedMessage
+		msg += "\n" + strings.Join(res.ReturnedMessages, "\n")
 	}
 	return checkers.NewChecker(status, msg)
 }
@@ -170,8 +170,9 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimesta
 // fullQuery returns p.Filter with additional commands for searching Logs
 func (p *awsCWLogsInsightsPlugin) fullQuery() string {
 	fullQuery := p.Filter
+	// GetQueryResults returns @message (,@timestamp and @ptr) by default, but add `fields @message` explicitly for safety
 	if p.ReturnMessage {
-		fullQuery = fullQuery + "| stats earliest(@message)"
+		fullQuery = fullQuery + " | fields @message"
 	}
 	return fullQuery
 }
@@ -184,7 +185,7 @@ func (p *awsCWLogsInsightsPlugin) startQuery(startTime, endTime time.Time) (*str
 		StartTime:     aws.Int64(startTime.Unix()),
 		LogGroupNames: aws.StringSlice(p.LogGroupNames),
 		QueryString:   aws.String(p.fullQuery()),
-		Limit:         aws.Int64(1),
+		Limit:         aws.Int64(10),
 	}
 	logger.Debugf("start query, %v", input)
 	q, err := p.Service.StartQuery(input)
@@ -203,10 +204,10 @@ func (p *awsCWLogsInsightsPlugin) getQueryResults(queryID *string) (*cloudwatchl
 
 // ParsedQueryResults is a result
 type ParsedQueryResults struct {
-	Finished        bool
-	FailureReason   string
-	MatchedCount    int
-	ReturnedMessage string
+	Finished         bool
+	FailureReason    string
+	MatchedCount     int
+	ReturnedMessages []string
 }
 
 // parseResult parses *cloudwatchlogs.GetQueryResultsOutput for checking logs
@@ -233,11 +234,11 @@ func parseResult(out *cloudwatchlogs.GetQueryResultsOutput) (*ParsedQueryResults
 		res.MatchedCount = int(*out.Statistics.RecordsMatched)
 	}
 
+	res.ReturnedMessages = []string{}
 	for _, fields := range out.Results {
 		for _, field := range fields {
-			if field.Field != nil && *field.Field == "earliest(@message)" && field.Value != nil {
-				res.ReturnedMessage = *(field.Value)
-				break
+			if field.Field != nil && *field.Field == "@message" && field.Value != nil {
+				res.ReturnedMessages = append(res.ReturnedMessages, *field.Value)
 			}
 		}
 	}
