@@ -4,9 +4,8 @@ on:
   workflow_dispatch:
     inputs:
       nextVersion:
-        description: 'Next Version'
+        description: 'Next Version (vX.Y.Z)'
         required: true
-        default: 'vX.Y.Z'
 jobs:
   create-release-pull-request:
     name: Create Release Pull Request
