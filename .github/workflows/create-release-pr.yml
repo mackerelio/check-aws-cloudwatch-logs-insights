@@ -22,12 +22,12 @@ jobs:
         echo "::set-output name=ghch-path::$TEMPDIR/ghch"
       env:
         GHCH_VERSION: v0.10.2
-        TZ: Asia/Tokyo
     - name: Generate New Changelog
       run: |
         ${{ steps.setup-ghch.outputs.ghch-path }} -w --next-version=${{ github.event.inputs.nextVersion }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        TZ: Asia/Tokyo
     - name: Create Pull Request
       uses: peter-evans/create-pull-request@v3
       with:
