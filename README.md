@@ -34,7 +34,7 @@ command = ["check-aws-cloudwatch-logs-insights", "--log-group-name", "/aws/lambd
   -w, --warning-over=WARNING                             Trigger a warning if matched lines is over a number
   -c, --critical-over=CRITICAL                           Trigger a critical if matched lines is over a number
   -s, --state-dir=DIR                                    Dir to keep state files under
-  -r, --return                                           Output earliest log found with given query
+  -r, --return                                           Output matched log messages (Up to 10 messages)
 ```
 
 The plugin uses the instance profile if possible, or you can configure `AWS_PROFILE` or `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` and `AWS_REGION` environment variables in the `env` settings.
