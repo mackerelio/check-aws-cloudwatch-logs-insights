@@ -32,7 +32,6 @@ jobs:
       uses: peter-evans/create-pull-request@v3
       with:
         # token: ${{ secrets.PERSONAL_ACCESS_TOKEN }} # TODO: Without this configuration, this p-r does not trigger another workflow (= CI)
-        branch-suffix: timestamp
         branch: release-${{ github.event.inputs.nextVersion}}
         commit-message: Prepare for release ${{ github.event.inputs.nextVersion}}
         title: Release ${{ github.event.inputs.nextVersion}}
@@ -40,5 +39,4 @@ jobs:
           ## How to release this version
           1. Review and modify CHANGELOG.md
           2. Merge this pull request
-          3. `git checkout main && git pull && git tag ${{ github.event.inputs.nextVersion }} && git push --tags`
-          4. Wait a while, and check https://github.com/${{ github.repository}}/releases/tag/${{ github.event.inputs.nextVersion }}
+          3. Wait a while, and check https://github.com/${{ github.repository}}/releases/tag/${{ github.event.inputs.nextVersion }}

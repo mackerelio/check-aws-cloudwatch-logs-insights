@@ -1,13 +1,20 @@
-# from https://tellme.tokyo/post/2020/02/04/release-go-cli-tool/
-name: release
+name: Release
 on:
-  push:
-    tags:
-    - "v[0-9]+.[0-9]+.[0-9]+*"
+  pull_request:
+    types: [closed]
+    branches:
+      - main
 jobs:
-  goreleaser:
+  release:
     runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release-v')
     steps:
+      - name: Extract version tag from branch name
+        id: extract-version
+        run: |
+          echo "::set-output name=version::${BRANCH#release-}"
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
       - name: Checkout
         uses: actions/checkout@v2
         with:
@@ -16,8 +23,16 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: ^1.15
+      - name: Add Release Tag
+        run: |
+          git tag ${{ steps.extract-version.outputs.version }}
+      - name: Push Release Tag
+        uses: ad-m/github-push-action@master
+        with:
+          tags: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v1
+        uses: goreleaser/goreleaser-action@v2
         with:
           version: latest
           args: release --rm-dist
