@@ -239,6 +239,7 @@ func parseResult(out *cloudwatchlogs.GetQueryResultsOutput) (*ParsedQueryResults
 		for _, field := range fields {
 			if field.Field != nil && *field.Field == "@message" && field.Value != nil {
 				res.ReturnedMessages = append(res.ReturnedMessages, *field.Value)
+				break
 			}
 		}
 	}
