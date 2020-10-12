@@ -40,7 +40,7 @@ type logOpts struct {
 	WarningOver   int    `short:"w" long:"warning-over" value-name:"WARNING" description:"Trigger a warning if matched lines is over a number"`
 	CriticalOver  int    `short:"c" long:"critical-over" value-name:"CRITICAL" description:"Trigger a critical if matched lines is over a number"`
 	StateDir      string `short:"s" long:"state-dir" value-name:"DIR" description:"Dir to keep state files under" unquote:"false"`
-	ReturnMessage bool   `short:"r" long:"return" description:"Output earliest log found with given query"`
+	ReturnMessage bool   `short:"r" long:"return" description:"Output matched log messages (Up to 10 messages)"`
 	Debug         bool   `long:"debug" description:"Enable debug log"`
 }
 
@@ -86,7 +86,7 @@ func (p *awsCWLogsInsightsPlugin) buildChecker(res *ParsedQueryResults) *checker
 		msg = fmt.Sprintf("%d messages", res.MatchedCount)
 	}
 	if status != checkers.OK && p.ReturnMessage {
-		msg += "\n" + res.ReturnedMessage
+		msg += "\n" + strings.Join(res.ReturnedMessages, "\n")
 	}
 	return checkers.NewChecker(status, msg)
 }
@@ -170,8 +170,9 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimesta
 // fullQuery returns p.Filter with additional commands for searching Logs
 func (p *awsCWLogsInsightsPlugin) fullQuery() string {
 	fullQuery := p.Filter
+	// GetQueryResults returns @message (,@timestamp and @ptr) by default, but add `fields @message` explicitly for safety
 	if p.ReturnMessage {
-		fullQuery = fullQuery + "| stats earliest(@message)"
+		fullQuery = fullQuery + " | fields @message"
 	}
 	return fullQuery
 }
@@ -184,7 +185,7 @@ func (p *awsCWLogsInsightsPlugin) startQuery(startTime, endTime time.Time) (*str
 		StartTime:     aws.Int64(startTime.Unix()),
 		LogGroupNames: aws.StringSlice(p.LogGroupNames),
 		QueryString:   aws.String(p.fullQuery()),
-		Limit:         aws.Int64(1),
+		Limit:         aws.Int64(10),
 	}
 	logger.Debugf("start query, %v", input)
 	q, err := p.Service.StartQuery(input)
@@ -203,10 +204,10 @@ func (p *awsCWLogsInsightsPlugin) getQueryResults(queryID *string) (*cloudwatchl
 
 // ParsedQueryResults is a result
 type ParsedQueryResults struct {
-	Finished        bool
-	FailureReason   string
-	MatchedCount    int
-	ReturnedMessage string
+	Finished         bool
+	FailureReason    string
+	MatchedCount     int
+	ReturnedMessages []string
 }
 
 // parseResult parses *cloudwatchlogs.GetQueryResultsOutput for checking logs
@@ -233,10 +234,11 @@ func parseResult(out *cloudwatchlogs.GetQueryResultsOutput) (*ParsedQueryResults
 		res.MatchedCount = int(*out.Statistics.RecordsMatched)
 	}
 
+	res.ReturnedMessages = []string{}
 	for _, fields := range out.Results {
 		for _, field := range fields {
-			if field.Field != nil && *field.Field == "earliest(@message)" && field.Value != nil {
-				res.ReturnedMessage = *(field.Value)
+			if field.Field != nil && *field.Field == "@message" && field.Value != nil {
+				res.ReturnedMessages = append(res.ReturnedMessages, *field.Value)
 				break
 			}
 		}

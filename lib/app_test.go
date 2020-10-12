@@ -43,7 +43,8 @@ func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
 			},
 			args: args{
 				res: &ParsedQueryResults{
-					MatchedCount: 5,
+					MatchedCount:     5,
+					ReturnedMessages: []string{"this-is-returned-message", "this-is-also-returned-message"},
 				},
 			},
 			want: checkers.Critical("5 > 4 messages"),
@@ -58,7 +59,8 @@ func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
 			},
 			args: args{
 				res: &ParsedQueryResults{
-					MatchedCount: 3,
+					MatchedCount:     3,
+					ReturnedMessages: []string{"this-is-returned-message", "this-is-also-returned-message"},
 				},
 			},
 			want: checkers.Warning("3 > 2 messages"),
@@ -73,7 +75,8 @@ func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
 			},
 			args: args{
 				res: &ParsedQueryResults{
-					MatchedCount: 1,
+					MatchedCount:     1,
+					ReturnedMessages: []string{"this-is-returned-message"},
 				},
 			},
 			want: checkers.Ok("1 messages"),
@@ -88,7 +91,8 @@ func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
 			},
 			args: args{
 				res: &ParsedQueryResults{
-					MatchedCount: 4,
+					MatchedCount:     4,
+					ReturnedMessages: []string{"this-is-returned-message", "this-is-also-returned-message"},
 				},
 			},
 			want: checkers.Warning("4 > 2 messages"),
@@ -103,7 +107,8 @@ func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
 			},
 			args: args{
 				res: &ParsedQueryResults{
-					MatchedCount: 2,
+					MatchedCount:     2,
+					ReturnedMessages: []string{"this-is-returned-message", "this-is-also-returned-message"},
 				},
 			},
 			want: checkers.Ok("2 messages"),
@@ -119,11 +124,11 @@ func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
 			},
 			args: args{
 				res: &ParsedQueryResults{
-					MatchedCount:    5,
-					ReturnedMessage: "this-is-returned-message",
+					MatchedCount:     5,
+					ReturnedMessages: []string{"this-is-returned-message", "this-is-also-returned-message"},
 				},
 			},
-			want: checkers.Critical("5 > 4 messages\nthis-is-returned-message"),
+			want: checkers.Critical("5 > 4 messages\nthis-is-returned-message\nthis-is-also-returned-message"),
 		},
 		{
 			name: "will not include ReturnedMessage when ReturnMessage: false",
@@ -136,8 +141,8 @@ func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
 			},
 			args: args{
 				res: &ParsedQueryResults{
-					MatchedCount:    5,
-					ReturnedMessage: "this-is-returned-message",
+					MatchedCount:     5,
+					ReturnedMessages: []string{"this-is-returned-message", "this-is-also-returned-message"},
 				},
 			},
 			want: checkers.Critical("5 > 4 messages"),
@@ -181,15 +186,13 @@ func Test_parseResult(t *testing.T) {
 		{
 			&cloudwatchlogs.ResultField{
 				Field: aws.String("@message"),
-				Value: aws.String("some-log"),
+				Value: aws.String("msg-1"),
 			},
 		},
-	}
-	returnContentResult := [][]*cloudwatchlogs.ResultField{
 		{
 			&cloudwatchlogs.ResultField{
-				Field: aws.String("earliest(@message)"),
-				Value: aws.String("this-is-earliest-message"),
+				Field: aws.String("@message"),
+				Value: aws.String("msg-2"),
 			},
 		},
 	}
@@ -211,8 +214,9 @@ func Test_parseResult(t *testing.T) {
 				},
 			},
 			wantRes: &ParsedQueryResults{
-				Finished:     true, // complete
-				MatchedCount: 25,
+				Finished:         true, // complete
+				MatchedCount:     25,
+				ReturnedMessages: []string{"msg-1", "msg-2"},
 			},
 			wantErr: false,
 		},
@@ -226,9 +230,10 @@ func Test_parseResult(t *testing.T) {
 				},
 			},
 			wantRes: &ParsedQueryResults{
-				Finished:      true, // failed
-				FailureReason: "query was finished with `Failed` status",
-				MatchedCount:  0,
+				Finished:         true, // failed
+				FailureReason:    "query was finished with `Failed` status",
+				MatchedCount:     0,
+				ReturnedMessages: []string{},
 			},
 			wantErr: false,
 		},
@@ -244,9 +249,10 @@ func Test_parseResult(t *testing.T) {
 				},
 			},
 			wantRes: &ParsedQueryResults{
-				Finished:      true, // cancelled
-				FailureReason: "query was finished with `Cancelled` status",
-				MatchedCount:  25,
+				Finished:         true, // cancelled
+				FailureReason:    "query was finished with `Cancelled` status",
+				MatchedCount:     25,
+				ReturnedMessages: []string{},
 			},
 			wantErr: false,
 		},
@@ -260,8 +266,9 @@ func Test_parseResult(t *testing.T) {
 				},
 			},
 			wantRes: &ParsedQueryResults{
-				Finished:     false, // running
-				MatchedCount: 0,
+				Finished:         false, // running
+				MatchedCount:     0,
+				ReturnedMessages: []string{},
 			},
 			wantErr: false,
 		},
@@ -270,16 +277,16 @@ func Test_parseResult(t *testing.T) {
 			args: args{
 				out: &cloudwatchlogs.GetQueryResultsOutput{
 					Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
-					Results: returnContentResult,
+					Results: simpleResult,
 					Statistics: &cloudwatchlogs.QueryStatistics{
 						RecordsMatched: aws.Float64(25),
 					},
 				},
 			},
 			wantRes: &ParsedQueryResults{
-				Finished:        true, // complete
-				MatchedCount:    25,
-				ReturnedMessage: "this-is-earliest-message",
+				Finished:         true, // complete
+				MatchedCount:     25,
+				ReturnedMessages: []string{"msg-1", "msg-2"},
 			},
 			wantErr: false,
 		},
@@ -314,7 +321,21 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 		EndTime:       aws.Int64(now.Add(-5 * time.Minute).Unix()),
 		LogGroupNames: aws.StringSlice([]string{"/log/foo", "/log/baz"}),
 		QueryString:   aws.String("filter @message like /omg/"),
-		Limit:         aws.Int64(1),
+		Limit:         aws.Int64(10),
+	}
+	completeOutput := &cloudwatchlogs.GetQueryResultsOutput{
+		Status: aws.String(cloudwatchlogs.QueryStatusComplete),
+		Results: [][]*cloudwatchlogs.ResultField{
+			{
+				{
+					Field: aws.String("@message"),
+					Value: aws.String("omg something happend"),
+				},
+			},
+		},
+		Statistics: &cloudwatchlogs.QueryStatistics{
+			RecordsMatched: aws.Float64(6),
+		},
 	}
 	tests := []struct {
 		name             string
@@ -327,21 +348,14 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 		wantInput        *cloudwatchlogs.StartQueryInput
 	}{
 		{
-			name:   "without state file",
-			fields: defaultFields,
-			responses: []*cloudwatchlogs.GetQueryResultsOutput{
-				{
-					Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
-					Results: [][]*cloudwatchlogs.ResultField{},
-					Statistics: &cloudwatchlogs.QueryStatistics{
-						RecordsMatched: aws.Float64(6),
-					},
-				},
-			},
-			logState: nil,
+			name:      "without state file",
+			fields:    defaultFields,
+			responses: []*cloudwatchlogs.GetQueryResultsOutput{completeOutput},
+			logState:  nil,
 			want: &ParsedQueryResults{
-				Finished:     true,
-				MatchedCount: 6,
+				Finished:         true,
+				MatchedCount:     6,
+				ReturnedMessages: []string{"omg something happend"},
 			},
 			wantErr: false,
 			wantNextLogState: &logState{
@@ -350,23 +364,16 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			wantInput: defaultWantInput,
 		},
 		{
-			name:   "with state file",
-			fields: defaultFields,
-			responses: []*cloudwatchlogs.GetQueryResultsOutput{
-				{
-					Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
-					Results: [][]*cloudwatchlogs.ResultField{},
-					Statistics: &cloudwatchlogs.QueryStatistics{
-						RecordsMatched: aws.Float64(6),
-					},
-				},
-			},
+			name:      "with state file",
+			fields:    defaultFields,
+			responses: []*cloudwatchlogs.GetQueryResultsOutput{completeOutput},
 			logState: &logState{
 				EndTime: now.Add(-42 * time.Minute).Unix(),
 			},
 			want: &ParsedQueryResults{
-				Finished:     true,
-				MatchedCount: 6,
+				Finished:         true,
+				MatchedCount:     6,
+				ReturnedMessages: []string{"omg something happend"},
 			},
 			wantErr: false,
 			wantNextLogState: &logState{
@@ -377,27 +384,20 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 				EndTime:       aws.Int64(now.Add(-5 * time.Minute).Unix()),
 				LogGroupNames: aws.StringSlice([]string{"/log/foo", "/log/baz"}),
 				QueryString:   aws.String("filter @message like /omg/"),
-				Limit:         aws.Int64(1),
+				Limit:         aws.Int64(10),
 			},
 		},
 		{
-			name:   "too old stateFile",
-			fields: defaultFields,
-			responses: []*cloudwatchlogs.GetQueryResultsOutput{
-				{
-					Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
-					Results: [][]*cloudwatchlogs.ResultField{},
-					Statistics: &cloudwatchlogs.QueryStatistics{
-						RecordsMatched: aws.Float64(6),
-					},
-				},
-			},
+			name:      "too old stateFile",
+			fields:    defaultFields,
+			responses: []*cloudwatchlogs.GetQueryResultsOutput{completeOutput},
 			logState: &logState{
 				EndTime: now.Add(-365 * time.Minute).Unix(), // too old
 			},
 			want: &ParsedQueryResults{
-				Finished:     true,
-				MatchedCount: 6,
+				Finished:         true,
+				MatchedCount:     6,
+				ReturnedMessages: []string{"omg something happend"},
 			},
 			wantErr: false,
 			wantNextLogState: &logState{
@@ -413,27 +413,12 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 					ReturnMessage: true,
 				},
 			},
-			responses: []*cloudwatchlogs.GetQueryResultsOutput{
-				{
-					Status: aws.String(cloudwatchlogs.QueryStatusComplete),
-					Results: [][]*cloudwatchlogs.ResultField{
-						{
-							{
-								Field: aws.String("earliest(@message)"),
-								Value: aws.String("omg something happend"),
-							},
-						},
-					},
-					Statistics: &cloudwatchlogs.QueryStatistics{
-						RecordsMatched: aws.Float64(6),
-					},
-				},
-			},
-			logState: nil,
+			responses: []*cloudwatchlogs.GetQueryResultsOutput{completeOutput},
+			logState:  nil,
 			want: &ParsedQueryResults{
-				Finished:        true,
-				MatchedCount:    6,
-				ReturnedMessage: "omg something happend",
+				Finished:         true,
+				MatchedCount:     6,
+				ReturnedMessages: []string{"omg something happend"},
 			},
 			wantErr: false,
 			wantNextLogState: &logState{
@@ -443,8 +428,8 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 				StartTime:     aws.Int64(now.Add(-6 * time.Minute).Unix()),
 				EndTime:       aws.Int64(now.Add(-5 * time.Minute).Unix()),
 				LogGroupNames: aws.StringSlice([]string{"/log/foo", "/log/baz"}),
-				QueryString:   aws.String("filter @message like /omg/| stats earliest(@message)"),
-				Limit:         aws.Int64(1),
+				QueryString:   aws.String("filter @message like /omg/ | fields @message"),
+				Limit:         aws.Int64(10),
 			},
 		},
 		{
@@ -474,18 +459,13 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 					Results:    [][]*cloudwatchlogs.ResultField{},
 					Statistics: &cloudwatchlogs.QueryStatistics{},
 				},
-				{
-					Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
-					Results: [][]*cloudwatchlogs.ResultField{},
-					Statistics: &cloudwatchlogs.QueryStatistics{
-						RecordsMatched: aws.Float64(6),
-					},
-				},
+				completeOutput,
 			},
 			logState: nil,
 			want: &ParsedQueryResults{
-				Finished:     true,
-				MatchedCount: 6,
+				Finished:         true,
+				MatchedCount:     6,
+				ReturnedMessages: []string{"omg something happend"},
 			},
 			wantErr: false,
 			wantNextLogState: &logState{
@@ -498,18 +478,13 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			fields: defaultFields,
 			responses: []*cloudwatchlogs.GetQueryResultsOutput{
 				nil,
-				{
-					Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
-					Results: [][]*cloudwatchlogs.ResultField{},
-					Statistics: &cloudwatchlogs.QueryStatistics{
-						RecordsMatched: aws.Float64(6),
-					},
-				},
+				completeOutput,
 			},
 			logState: nil,
 			want: &ParsedQueryResults{
-				Finished:     true,
-				MatchedCount: 6,
+				Finished:         true,
+				MatchedCount:     6,
+				ReturnedMessages: []string{"omg something happend"},
 			},
 			wantErr: false,
 			wantNextLogState: &logState{
@@ -526,18 +501,13 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 					Results:    [][]*cloudwatchlogs.ResultField{},
 					Statistics: &cloudwatchlogs.QueryStatistics{},
 				},
-				{
-					Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
-					Results: [][]*cloudwatchlogs.ResultField{},
-					Statistics: &cloudwatchlogs.QueryStatistics{
-						RecordsMatched: aws.Float64(6),
-					},
-				},
+				completeOutput,
 			},
 			logState: nil,
 			want: &ParsedQueryResults{
-				Finished:     true,
-				MatchedCount: 6,
+				Finished:         true,
+				MatchedCount:     6,
+				ReturnedMessages: []string{"omg something happend"},
 			},
 			wantErr: false,
 			wantNextLogState: &logState{
