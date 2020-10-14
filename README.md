@@ -3,6 +3,8 @@
 ## Description
 Checks Amazon CloudWatch Logs using CloudWatch Logs Insights.
 
+More details available at our blog: [ja](https://mackerel.io/ja/blog/entry/2020/10/12/120000) / [en](https://mackerel.io/blog/entry/2020/10/12/120000).
+
 ## Synopsis
 ```
 check-aws-cloudwatch-logs-insights --log-group-name /aws/lambda/sample_log_group --query "filter @message =~ /error/" --critical-over 10 --warning-over 5
