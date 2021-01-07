@@ -42,7 +42,7 @@ type logOpts struct {
 	StateDir      string `short:"s" long:"state-dir" value-name:"DIR" description:"Dir to keep state files under" unquote:"false"`
 	ReturnMessage bool   `short:"r" long:"return" description:"Output matched log messages (Up to 10 messages)"`
 	// Considering delay in CloudWatch Logs Insights, default offset is 5 minutes (= 300 seconds)
-	TimestampOffsetSeconds int  `short:"t" long:"timestamp-offset" description:"Search for logs which are more than specified seconds older" default:"300"`
+	TimestampOffsetSeconds int  `short:"t" long:"timestamp-offset" value-name:"SECONDS" description:"Search for logs which are more than specified seconds older" default:"300"`
 	Debug                  bool `long:"debug" description:"Enable debug log"`
 }
 
