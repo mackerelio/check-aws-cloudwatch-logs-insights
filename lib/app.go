@@ -41,7 +41,9 @@ type logOpts struct {
 	CriticalOver  int    `short:"c" long:"critical-over" value-name:"CRITICAL" description:"Trigger a critical if matched lines is over a number"`
 	StateDir      string `short:"s" long:"state-dir" value-name:"DIR" description:"Dir to keep state files under" unquote:"false"`
 	ReturnMessage bool   `short:"r" long:"return" description:"Output matched log messages (Up to 10 messages)"`
-	Debug         bool   `long:"debug" description:"Enable debug log"`
+	// Considering delay in CloudWatch Logs Insights, default offset is 5 minutes (= 300 seconds)
+	TimestampOffsetSeconds int  `short:"t" long:"timestamp-offset" description:"Search for logs which are specified seconds older than current timestamp" default:"300"`
+	Debug                  bool `long:"debug" description:"Enable debug log"`
 }
 
 type awsCWLogsInsightsPlugin struct {
@@ -92,8 +94,7 @@ func (p *awsCWLogsInsightsPlugin) buildChecker(res *ParsedQueryResults) *checker
 }
 
 func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimestamp time.Time, interval time.Duration) (*ParsedQueryResults, error) {
-	// Considering delay in CloudWatch Logs Insights, endTime is 5 minutes prior current timestamp
-	endTime := currentTimestamp.Add(-5 * time.Minute)
+	endTime := currentTimestamp.Add(time.Duration(-1*p.TimestampOffsetSeconds) * time.Second)
 	startTime := endTime.Add(-1 * time.Minute)
 
 	// If state file found, set startTime to last endTime

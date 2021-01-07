@@ -312,8 +312,9 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 	}
 	defaultFields := fields{
 		logOpts: &logOpts{
-			LogGroupNames: []string{"/log/foo", "/log/baz"},
-			Filter:        "filter @message like /omg/",
+			LogGroupNames:          []string{"/log/foo", "/log/baz"},
+			Filter:                 "filter @message like /omg/",
+			TimestampOffsetSeconds: 300,
 		},
 	}
 	defaultWantInput := &cloudwatchlogs.StartQueryInput{
@@ -408,9 +409,10 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			name: "with ReturnMessage: true",
 			fields: fields{
 				logOpts: &logOpts{
-					LogGroupNames: []string{"/log/foo", "/log/baz"},
-					Filter:        "filter @message like /omg/",
-					ReturnMessage: true,
+					LogGroupNames:          []string{"/log/foo", "/log/baz"},
+					Filter:                 "filter @message like /omg/",
+					ReturnMessage:          true,
+					TimestampOffsetSeconds: 300,
 				},
 			},
 			responses: []*cloudwatchlogs.GetQueryResultsOutput{completeOutput},
