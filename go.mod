@@ -1,4 +1,4 @@
-module github.com/mackerelio-labs/check-aws-cloudwatch-logs-insights
+module github.com/mackerelio/check-aws-cloudwatch-logs-insights
 
 go 1.15
 
