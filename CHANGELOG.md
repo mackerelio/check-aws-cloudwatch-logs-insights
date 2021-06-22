@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.1.0](https://github.com/mackerelio/check-aws-cloudwatch-logs-insights/compare/v0.0.2...v0.1.0) (2021-06-22)
+
+* Migrate repository and graduate from Beta [#12](https://github.com/mackerelio/check-aws-cloudwatch-logs-insights/pull/12) ([astj](https://github.com/astj))
+
 ## [v0.0.2](https://github.com/mackerelio-labs/check-aws-cloudwatch-logs-insights/compare/v0.0.1...v0.0.2) (2020-10-12)
 
 * Use `fields @message` for --return [#5](https://github.com/mackerelio-labs/check-aws-cloudwatch-logs-insights/pull/5) ([astj](https://github.com/astj))
