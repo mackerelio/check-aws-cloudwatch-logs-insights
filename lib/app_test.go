@@ -312,8 +312,9 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 	}
 	defaultFields := fields{
 		logOpts: &logOpts{
-			LogGroupNames: []string{"/log/foo", "/log/baz"},
-			Filter:        "filter @message like /omg/",
+			LogGroupNames:          []string{"/log/foo", "/log/baz"},
+			Filter:                 "filter @message like /omg/",
+			TimestampOffsetSeconds: 300,
 		},
 	}
 	defaultWantInput := &cloudwatchlogs.StartQueryInput{
@@ -404,13 +405,15 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 				EndTime: now.Add(-5 * time.Minute).Unix(),
 			},
 			wantInput: defaultWantInput, // QueryStartedAt is ignored
-		}, {
+		},
+		{
 			name: "with ReturnMessage: true",
 			fields: fields{
 				logOpts: &logOpts{
-					LogGroupNames: []string{"/log/foo", "/log/baz"},
-					Filter:        "filter @message like /omg/",
-					ReturnMessage: true,
+					LogGroupNames:          []string{"/log/foo", "/log/baz"},
+					Filter:                 "filter @message like /omg/",
+					ReturnMessage:          true,
+					TimestampOffsetSeconds: 300,
 				},
 			},
 			responses: []*cloudwatchlogs.GetQueryResultsOutput{completeOutput},
@@ -429,6 +432,34 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 				EndTime:       aws.Int64(now.Add(-5 * time.Minute).Unix()),
 				LogGroupNames: aws.StringSlice([]string{"/log/foo", "/log/baz"}),
 				QueryString:   aws.String("filter @message like /omg/ | fields @message"),
+				Limit:         aws.Int64(10),
+			},
+		},
+		{
+			name: "changing TimestampOffsetSeconds",
+			fields: fields{
+				logOpts: &logOpts{
+					LogGroupNames:          []string{"/log/foo", "/log/baz"},
+					Filter:                 "filter @message like /omg/",
+					TimestampOffsetSeconds: 600, // 300 => 600
+				},
+			},
+			responses: []*cloudwatchlogs.GetQueryResultsOutput{completeOutput},
+			logState:  nil,
+			want: &ParsedQueryResults{
+				Finished:         true,
+				MatchedCount:     6,
+				ReturnedMessages: []string{"omg something happend"},
+			},
+			wantErr: false,
+			wantNextLogState: &logState{
+				EndTime: now.Add(-10 * time.Minute).Unix(),
+			},
+			wantInput: &cloudwatchlogs.StartQueryInput{
+				StartTime:     aws.Int64(now.Add(-11 * time.Minute).Unix()),
+				EndTime:       aws.Int64(now.Add(-10 * time.Minute).Unix()),
+				LogGroupNames: aws.StringSlice([]string{"/log/foo", "/log/baz"}),
+				QueryString:   aws.String("filter @message like /omg/"),
 				Limit:         aws.Int64(10),
 			},
 		},

@@ -37,6 +37,7 @@ command = ["check-aws-cloudwatch-logs-insights", "--log-group-name", "/aws/lambd
   -c, --critical-over=CRITICAL                           Trigger a critical if matched lines is over a number
   -s, --state-dir=DIR                                    Dir to keep state files under
   -r, --return                                           Output matched log messages (Up to 10 messages)
+  -t, --timestamp-offset=SECONDS                         Search for logs which are more than specified seconds older (default: 300)
 ```
 
 The plugin uses the instance profile if possible, or you can configure `AWS_PROFILE` or `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` and `AWS_REGION` environment variables in the `env` settings.
