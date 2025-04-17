@@ -1,29 +1,17 @@
-name: Go
+---
+name: test
 
-on: [push]
-
+on:
+  push:
+    branches:
+    - main
+    tags:
+    - v*
+  pull_request:
+env:
+  DEBIAN_FRONTEND: noninteractive
 jobs:
-
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    steps:
-
-    - name: Set up Go 1.x
-      uses: actions/setup-go@v2
-      with:
-        go-version: ^1.15
-      id: go
-
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v2
-
-    - name: Get dependencies
-      run: |
-        go get -v -t -d ./...
-
-    - name: Build
-      run: go build -v .
-
-    - name: Test
-      run: go test -v ./...
+  lint:
+    uses: mackerelio/workflows/.github/workflows/go-lint.yml@v1.4.0
+  test:
+    uses: mackerelio/workflows/.github/workflows/go-test.yml@v1.4.0
