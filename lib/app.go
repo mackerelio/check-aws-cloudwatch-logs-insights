@@ -14,10 +14,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
-	"github.com/aws/aws-sdk-go/service/cloudwatchlogs/cloudwatchlogsiface"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 	"github.com/jessevdk/go-flags"
 	"github.com/mackerelio/checkers"
 	"github.com/mackerelio/golib/logging"
@@ -44,33 +44,33 @@ type logOpts struct {
 	Debug         bool   `long:"debug" description:"Enable debug log"`
 }
 
+type cwIface interface {
+	StartQuery(ctx context.Context, params *cloudwatchlogs.StartQueryInput, optFns ...func(*cloudwatchlogs.Options)) (*cloudwatchlogs.StartQueryOutput, error)
+	GetQueryResults(ctx context.Context, params *cloudwatchlogs.GetQueryResultsInput, optFns ...func(*cloudwatchlogs.Options)) (*cloudwatchlogs.GetQueryResultsOutput, error)
+	StopQuery(ctx context.Context, params *cloudwatchlogs.StopQueryInput, optFns ...func(*cloudwatchlogs.Options)) (*cloudwatchlogs.StopQueryOutput, error)
+}
+
 type awsCWLogsInsightsPlugin struct {
-	Service   cloudwatchlogsiface.CloudWatchLogsAPI
+	Service   cwIface
 	StateFile string
 	*logOpts
 }
 
-func newCWLogsInsightsPlugin(opts *logOpts, args []string) (*awsCWLogsInsightsPlugin, error) {
-	var err error
-	p := &awsCWLogsInsightsPlugin{logOpts: opts}
-	p.Service, err = createService(opts)
+func newCWLogsInsightsPlugin(ctx context.Context, opts *logOpts, args []string) (*awsCWLogsInsightsPlugin, error) {
+	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
+
+	p := &awsCWLogsInsightsPlugin{logOpts: opts}
+	p.Service = cloudwatchlogs.NewFromConfig(cfg)
+
 	if p.StateDir == "" {
 		workdir := pluginutil.PluginWorkDir()
 		p.StateDir = filepath.Join(workdir, "check-aws-cloudwatch-logs-insights")
 	}
 	p.StateFile = getStateFile(p.StateDir, args)
 	return p, nil
-}
-
-func createService(opts *logOpts) (*cloudwatchlogs.CloudWatchLogs, error) {
-	sess, err := session.NewSession()
-	if err != nil {
-		return nil, err
-	}
-	return cloudwatchlogs.New(sess, aws.NewConfig()), nil
 }
 
 func (p *awsCWLogsInsightsPlugin) buildChecker(res *ParsedQueryResults) *checkers.Checker {
@@ -115,7 +115,7 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimesta
 		EndTime: endTime.Unix(),
 	}
 
-	queryID, err := p.startQuery(startTime, endTime)
+	queryID, err := p.startQuery(ctx, startTime, endTime)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start query: %w", err)
 	}
@@ -138,7 +138,7 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimesta
 			return nil, err
 		case <-ticker.C:
 			logger.Debugf("Try to GetQueryResults...")
-			out, err := p.getQueryResults(queryID)
+			out, err := p.getQueryResults(ctx, queryID)
 			if err != nil {
 				logger.Warningf("GetQueryResults failed (will retry): %v", err)
 				continue
@@ -179,16 +179,16 @@ func (p *awsCWLogsInsightsPlugin) fullQuery() string {
 
 // startQuery calls cloudwatchlogs.StartQuery()
 // returns (queryId, error)
-func (p *awsCWLogsInsightsPlugin) startQuery(startTime, endTime time.Time) (*string, error) {
+func (p *awsCWLogsInsightsPlugin) startQuery(ctx context.Context, startTime, endTime time.Time) (*string, error) {
 	input := &cloudwatchlogs.StartQueryInput{
 		EndTime:       aws.Int64(endTime.Unix()),
 		StartTime:     aws.Int64(startTime.Unix()),
-		LogGroupNames: aws.StringSlice(p.LogGroupNames),
+		LogGroupNames: p.LogGroupNames,
 		QueryString:   aws.String(p.fullQuery()),
-		Limit:         aws.Int64(10),
+		Limit:         aws.Int32(10),
 	}
 	logger.Debugf("start query, %v", input)
-	q, err := p.Service.StartQuery(input)
+	q, err := p.Service.StartQuery(ctx, input)
 	if err != nil {
 		return nil, err
 	}
@@ -196,8 +196,8 @@ func (p *awsCWLogsInsightsPlugin) startQuery(startTime, endTime time.Time) (*str
 }
 
 // getQueryResults calls cloudwatchlogs.GetQueryResults()
-func (p *awsCWLogsInsightsPlugin) getQueryResults(queryID *string) (*cloudwatchlogs.GetQueryResultsOutput, error) {
-	return p.Service.GetQueryResults(&cloudwatchlogs.GetQueryResultsInput{
+func (p *awsCWLogsInsightsPlugin) getQueryResults(ctx context.Context, queryID *string) (*cloudwatchlogs.GetQueryResultsOutput, error) {
+	return p.Service.GetQueryResults(ctx, &cloudwatchlogs.GetQueryResultsInput{
 		QueryId: queryID,
 	})
 }
@@ -212,26 +212,26 @@ type ParsedQueryResults struct {
 
 // parseResult parses *cloudwatchlogs.GetQueryResultsOutput for checking logs
 func parseResult(out *cloudwatchlogs.GetQueryResultsOutput) (*ParsedQueryResults, error) {
-	if out == nil || out.Status == nil {
+	if out == nil {
 		err := fmt.Errorf("unexpected response, %v", out)
 		return nil, err
 	}
 
 	res := &ParsedQueryResults{}
-	switch *out.Status {
-	case cloudwatchlogs.QueryStatusComplete:
+	switch out.Status {
+	case types.QueryStatusComplete:
 		res.Finished = true
-	case cloudwatchlogs.QueryStatusFailed, cloudwatchlogs.QueryStatusCancelled:
+	case types.QueryStatusFailed, types.QueryStatusCancelled:
 		res.Finished = true
-		res.FailureReason = fmt.Sprintf("query was finished with `%s` status", *out.Status)
-	case cloudwatchlogs.QueryStatusRunning, cloudwatchlogs.QueryStatusScheduled:
+		res.FailureReason = fmt.Sprintf("query was finished with `%s` status", out.Status)
+	case types.QueryStatusRunning, types.QueryStatusScheduled:
 		res.Finished = false
 	default:
-		return nil, fmt.Errorf("unexpected QueryStatus: %s", *out.Status)
+		return nil, fmt.Errorf("unexpected QueryStatus: %s", out.Status)
 	}
 
-	if out.Statistics != nil && out.Statistics.RecordsMatched != nil {
-		res.MatchedCount = int(*out.Statistics.RecordsMatched)
+	if out.Statistics != nil {
+		res.MatchedCount = int(out.Statistics.RecordsMatched)
 	}
 
 	res.ReturnedMessages = []string{}
@@ -249,7 +249,7 @@ func parseResult(out *cloudwatchlogs.GetQueryResultsOutput) (*ParsedQueryResults
 
 // stopQuery stops given query by cloudwatchlogs.StopQuery()
 func (p *awsCWLogsInsightsPlugin) stopQuery(queryID *string) error {
-	_, err := p.Service.StopQuery(&cloudwatchlogs.StopQueryInput{
+	_, err := p.Service.StopQuery(context.Background(), &cloudwatchlogs.StopQueryInput{
 		QueryId: queryID,
 	})
 	return err
@@ -332,12 +332,12 @@ func run(args []string) *checkers.Checker {
 	if opts.Debug {
 		logging.SetLogLevel(logging.DEBUG)
 	}
-	p, err := newCWLogsInsightsPlugin(opts, args)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	p, err := newCWLogsInsightsPlugin(ctx, opts, args)
 	if err != nil {
 		return checkers.Unknown(err.Error())
 	}
-
-	ctx, cancel := context.WithCancel(context.Background())
 
 	// on termination, call cancel
 	resCh := make(chan *checkers.Checker, 1)

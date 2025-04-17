@@ -11,16 +11,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
-	"github.com/aws/aws-sdk-go/service/cloudwatchlogs/cloudwatchlogsiface"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs/types"
 	"github.com/mackerelio/checkers"
 	"github.com/stretchr/testify/mock"
 )
 
 func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
 	type fields struct {
-		Service   cloudwatchlogsiface.CloudWatchLogsAPI
+		Service   cwIface
 		StateFile string
 		logOpts   *logOpts
 	}
@@ -162,17 +162,17 @@ func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
 }
 
 type mockAWSCloudWatchLogsClient struct {
-	cloudwatchlogsiface.CloudWatchLogsAPI
+	cwIface
 	mock.Mock
 }
 
-func (c *mockAWSCloudWatchLogsClient) StartQuery(input *cloudwatchlogs.StartQueryInput) (*cloudwatchlogs.StartQueryOutput, error) {
+func (c *mockAWSCloudWatchLogsClient) StartQuery(_ context.Context, input *cloudwatchlogs.StartQueryInput, _ ...func(*cloudwatchlogs.Options)) (*cloudwatchlogs.StartQueryOutput, error) {
 	args := c.Called(input)
 	res, _ := args.Get(0).(*cloudwatchlogs.StartQueryOutput)
 	return res, args.Error(1)
 }
 
-func (c *mockAWSCloudWatchLogsClient) GetQueryResults(input *cloudwatchlogs.GetQueryResultsInput) (*cloudwatchlogs.GetQueryResultsOutput, error) {
+func (c *mockAWSCloudWatchLogsClient) GetQueryResults(_ context.Context, input *cloudwatchlogs.GetQueryResultsInput, _ ...func(*cloudwatchlogs.Options)) (*cloudwatchlogs.GetQueryResultsOutput, error) {
 	args := c.Called(input)
 	res, _ := args.Get(0).(*cloudwatchlogs.GetQueryResultsOutput)
 	return res, args.Error(1)
@@ -182,15 +182,15 @@ func Test_parseResult(t *testing.T) {
 	type args struct {
 		out *cloudwatchlogs.GetQueryResultsOutput
 	}
-	simpleResult := [][]*cloudwatchlogs.ResultField{
+	simpleResult := [][]types.ResultField{
 		{
-			&cloudwatchlogs.ResultField{
+			types.ResultField{
 				Field: aws.String("@message"),
 				Value: aws.String("msg-1"),
 			},
 		},
 		{
-			&cloudwatchlogs.ResultField{
+			types.ResultField{
 				Field: aws.String("@message"),
 				Value: aws.String("msg-2"),
 			},
@@ -206,10 +206,10 @@ func Test_parseResult(t *testing.T) {
 			name: "complete",
 			args: args{
 				out: &cloudwatchlogs.GetQueryResultsOutput{
-					Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
+					Status:  types.QueryStatusComplete,
 					Results: simpleResult,
-					Statistics: &cloudwatchlogs.QueryStatistics{
-						RecordsMatched: aws.Float64(25),
+					Statistics: &types.QueryStatistics{
+						RecordsMatched: 25,
 					},
 				},
 			},
@@ -224,9 +224,9 @@ func Test_parseResult(t *testing.T) {
 			name: "failed",
 			args: args{
 				out: &cloudwatchlogs.GetQueryResultsOutput{
-					Status:     aws.String(cloudwatchlogs.QueryStatusFailed),
+					Status:     types.QueryStatusFailed,
 					Results:    nil,
-					Statistics: &cloudwatchlogs.QueryStatistics{},
+					Statistics: &types.QueryStatistics{},
 				},
 			},
 			wantRes: &ParsedQueryResults{
@@ -241,10 +241,10 @@ func Test_parseResult(t *testing.T) {
 			name: "cancelled",
 			args: args{
 				out: &cloudwatchlogs.GetQueryResultsOutput{
-					Status:  aws.String(cloudwatchlogs.QueryStatusCancelled),
+					Status:  types.QueryStatusCancelled,
 					Results: nil,
-					Statistics: &cloudwatchlogs.QueryStatistics{
-						RecordsMatched: aws.Float64(25),
+					Statistics: &types.QueryStatistics{
+						RecordsMatched: 25,
 					},
 				},
 			},
@@ -260,7 +260,7 @@ func Test_parseResult(t *testing.T) {
 			name: "running",
 			args: args{
 				out: &cloudwatchlogs.GetQueryResultsOutput{
-					Status:     aws.String(cloudwatchlogs.QueryStatusRunning),
+					Status:     types.QueryStatusRunning,
 					Results:    nil,
 					Statistics: nil,
 				},
@@ -276,10 +276,10 @@ func Test_parseResult(t *testing.T) {
 			name: "with stats",
 			args: args{
 				out: &cloudwatchlogs.GetQueryResultsOutput{
-					Status:  aws.String(cloudwatchlogs.QueryStatusComplete),
+					Status:  types.QueryStatusComplete,
 					Results: simpleResult,
-					Statistics: &cloudwatchlogs.QueryStatistics{
-						RecordsMatched: aws.Float64(25),
+					Statistics: &types.QueryStatistics{
+						RecordsMatched: 25,
 					},
 				},
 			},
@@ -319,13 +319,13 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 	defaultWantInput := &cloudwatchlogs.StartQueryInput{
 		StartTime:     aws.Int64(now.Add(-6 * time.Minute).Unix()),
 		EndTime:       aws.Int64(now.Add(-5 * time.Minute).Unix()),
-		LogGroupNames: aws.StringSlice([]string{"/log/foo", "/log/baz"}),
+		LogGroupNames: []string{"/log/foo", "/log/baz"},
 		QueryString:   aws.String("filter @message like /omg/"),
-		Limit:         aws.Int64(10),
+		Limit:         aws.Int32(10),
 	}
 	completeOutput := &cloudwatchlogs.GetQueryResultsOutput{
-		Status: aws.String(cloudwatchlogs.QueryStatusComplete),
-		Results: [][]*cloudwatchlogs.ResultField{
+		Status: types.QueryStatusComplete,
+		Results: [][]types.ResultField{
 			{
 				{
 					Field: aws.String("@message"),
@@ -333,8 +333,8 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 				},
 			},
 		},
-		Statistics: &cloudwatchlogs.QueryStatistics{
-			RecordsMatched: aws.Float64(6),
+		Statistics: &types.QueryStatistics{
+			RecordsMatched: 6,
 		},
 	}
 	tests := []struct {
@@ -382,9 +382,9 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			wantInput: &cloudwatchlogs.StartQueryInput{
 				StartTime:     aws.Int64(now.Add(-42 * time.Minute).Unix()),
 				EndTime:       aws.Int64(now.Add(-5 * time.Minute).Unix()),
-				LogGroupNames: aws.StringSlice([]string{"/log/foo", "/log/baz"}),
+				LogGroupNames: []string{"/log/foo", "/log/baz"},
 				QueryString:   aws.String("filter @message like /omg/"),
-				Limit:         aws.Int64(10),
+				Limit:         aws.Int32(10),
 			},
 		},
 		{
@@ -427,9 +427,9 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			wantInput: &cloudwatchlogs.StartQueryInput{
 				StartTime:     aws.Int64(now.Add(-6 * time.Minute).Unix()),
 				EndTime:       aws.Int64(now.Add(-5 * time.Minute).Unix()),
-				LogGroupNames: aws.StringSlice([]string{"/log/foo", "/log/baz"}),
+				LogGroupNames: []string{"/log/foo", "/log/baz"},
 				QueryString:   aws.String("filter @message like /omg/ | fields @message"),
-				Limit:         aws.Int64(10),
+				Limit:         aws.Int32(10),
 			},
 		},
 		{
@@ -437,9 +437,9 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			fields: defaultFields,
 			responses: []*cloudwatchlogs.GetQueryResultsOutput{
 				{
-					Status:     aws.String(cloudwatchlogs.QueryStatusFailed),
-					Results:    [][]*cloudwatchlogs.ResultField{},
-					Statistics: &cloudwatchlogs.QueryStatistics{},
+					Status:     types.QueryStatusFailed,
+					Results:    [][]types.ResultField{},
+					Statistics: &types.QueryStatistics{},
 				},
 			},
 			logState: nil,
@@ -455,9 +455,9 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			fields: defaultFields,
 			responses: []*cloudwatchlogs.GetQueryResultsOutput{
 				{
-					Status:     aws.String(cloudwatchlogs.QueryStatusRunning),
-					Results:    [][]*cloudwatchlogs.ResultField{},
-					Statistics: &cloudwatchlogs.QueryStatistics{},
+					Status:     types.QueryStatusRunning,
+					Results:    [][]types.ResultField{},
+					Statistics: &types.QueryStatistics{},
 				},
 				completeOutput,
 			},
@@ -497,9 +497,9 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			fields: defaultFields,
 			responses: []*cloudwatchlogs.GetQueryResultsOutput{
 				{
-					Status:     nil, // malformed
-					Results:    [][]*cloudwatchlogs.ResultField{},
-					Statistics: &cloudwatchlogs.QueryStatistics{},
+					Status:     types.QueryStatusUnknown, // malformed
+					Results:    [][]types.ResultField{},
+					Statistics: &types.QueryStatistics{},
 				},
 				completeOutput,
 			},
