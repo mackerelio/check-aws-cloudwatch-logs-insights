@@ -9,8 +9,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.29.14
 	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.47.3
 	github.com/jessevdk/go-flags v1.4.0
-	github.com/mackerelio/checkers v0.0.0-20200428063449-52cfb2c2c52c
-	github.com/mackerelio/golib v1.0.0
+	github.com/mackerelio/checkers v0.2.0
+	github.com/mackerelio/golib v1.2.1
 	github.com/natefinch/atomic v0.0.0-20200526193002-18c0533a5b09
 	github.com/stretchr/testify v1.5.1
 )
@@ -31,7 +31,5 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/stretchr/objx v0.2.0 // indirect
-	golang.org/x/lint v0.0.0-20200302205851-738671d3881b // indirect
-	golang.org/x/tools v0.0.0-20200426102838-f3a5411a4c3b // indirect
 	gopkg.in/yaml.v2 v2.2.2 // indirect
 )
