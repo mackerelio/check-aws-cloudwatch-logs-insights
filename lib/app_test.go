@@ -5,8 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
@@ -519,15 +519,13 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// prepare state
-			file, _ := ioutil.TempFile("", "check-aws-cloudwatch-logs-streams-test-searchLogs")
+			filename := filepath.Join(t.TempDir(), "check-aws-cloudwatch-logs-streams-test-searchLogs")
 			if tt.logState == nil {
-				os.Remove(file.Name())
+				os.Remove(filename)
 			} else {
 				b, _ := json.Marshal(tt.logState)
-				ioutil.WriteFile(file.Name(), b, 0644)
+				os.WriteFile(filename, b, 0644) // nolint
 			}
-			file.Close()
-			defer os.Remove(file.Name())
 
 			svc := &mockAWSCloudWatchLogsClient{}
 			svc.On("StartQuery", tt.wantInput).Return(&cloudwatchlogs.StartQueryOutput{
@@ -544,7 +542,7 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			}
 			p := &awsCWLogsInsightsPlugin{
 				Service:   svc,
-				StateFile: file.Name(),
+				StateFile: filename,
 				logOpts:   tt.fields.logOpts,
 			}
 			got, err := p.searchLogs(context.TODO(), now, time.Millisecond)
@@ -558,7 +556,7 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			svc.AssertExpectations(t)
 
 			// test whether stateFile is updated
-			cnt, _ := ioutil.ReadFile(file.Name())
+			cnt, _ := os.ReadFile(filename)
 			var s logState
 			err = json.NewDecoder(bytes.NewReader(cnt)).Decode(&s)
 			if err != nil {

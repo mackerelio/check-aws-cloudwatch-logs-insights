@@ -333,6 +333,7 @@ func run(args []string) *checkers.Checker {
 		logging.SetLogLevel(logging.DEBUG)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	p, err := newCWLogsInsightsPlugin(ctx, opts, args)
 	if err != nil {
