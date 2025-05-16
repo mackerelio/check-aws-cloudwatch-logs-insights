@@ -1,5 +1,9 @@
 # Changelog
 
+## This document is unmaintened.
+
+Please read a https://github.com/mackerelio/check-aws-cloudwatch-logs-insights/releases
+
 ## [v0.1.0](https://github.com/mackerelio/check-aws-cloudwatch-logs-insights/compare/v0.0.2...v0.1.0) (2021-06-22)
 
 * Migrate repository and graduate from Beta [#12](https://github.com/mackerelio/check-aws-cloudwatch-logs-insights/pull/12) ([astj](https://github.com/astj))
