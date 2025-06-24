@@ -20,6 +20,9 @@ type fileStore struct {
 
 func (p *fileStore) Load() (*logState, error) {
 	f, err := os.Open(p.StateFile)
+	if err != nil && os.IsNotExist(err) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}

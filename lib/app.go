@@ -95,9 +95,9 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimesta
 	endTime := currentTimestamp.Add(-5 * time.Minute)
 	startTime := endTime.Add(-1 * time.Minute)
 
-	// If state file found, set startTime to last endTime
+	// If state found, set startTime to last endTime
 	lastState, err := p.State.Load()
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil {
 		return nil, fmt.Errorf("failed to load plugin state: %w", err)
 	}
 	if lastState != nil && lastState.EndTime != 0 {
