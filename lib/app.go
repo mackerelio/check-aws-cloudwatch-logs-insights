@@ -104,7 +104,7 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimesta
 		lastEndTime := time.Unix(lastState.EndTime, 0)
 		// prevent too long duration
 		if lastEndTime.Add(90 * time.Minute).Before(endTime) {
-			logger.Warningf("ignoring stateFile since is's too old")
+			logger.Warningf("ignoring state since is's too old")
 		} else {
 			startTime = lastEndTime
 		}
@@ -127,7 +127,7 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimesta
 			// Cancel current query.
 			logger.Infof("execution cancelled. Will send StopQuery to stop the running query.")
 			if saveStateErr := p.State.Save(ctx, nextState); saveStateErr != nil {
-				logger.Errorf("failed to save state file: %v", saveStateErr)
+				logger.Errorf("failed to save state: %v", saveStateErr)
 			}
 			if stopQueryErr := p.stopQuery(queryID); stopQueryErr != nil {
 				logger.Errorf("failed to stop the running query: %v", stopQueryErr)
@@ -154,12 +154,12 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimesta
 			logger.Debugf("Query finished! got result: %v", out)
 			if res.FailureReason != "" {
 				if saveStateErr := p.State.Save(ctx, nextState); saveStateErr != nil {
-					logger.Errorf("failed to save state file: %v", saveStateErr)
+					logger.Errorf("failed to save state: %v", saveStateErr)
 				}
 				return nil, errors.New(res.FailureReason)
 			}
 			if saveStateErr := p.State.Save(ctx, nextState); saveStateErr != nil {
-				return nil, fmt.Errorf("failed to save state file: %w", saveStateErr)
+				return nil, fmt.Errorf("failed to save state: %w", saveStateErr)
 			}
 			return res, nil
 		}
