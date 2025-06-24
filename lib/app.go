@@ -96,7 +96,7 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimesta
 	startTime := endTime.Add(-1 * time.Minute)
 
 	// If state found, set startTime to last endTime
-	lastState, err := p.State.Load()
+	lastState, err := p.State.Load(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load plugin state: %w", err)
 	}
@@ -126,7 +126,7 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimesta
 			err := ctx.Err()
 			// Cancel current query.
 			logger.Infof("execution cancelled. Will send StopQuery to stop the running query.")
-			if saveStateErr := p.State.Save(nextState); saveStateErr != nil {
+			if saveStateErr := p.State.Save(ctx, nextState); saveStateErr != nil {
 				logger.Errorf("failed to save state file: %v", saveStateErr)
 			}
 			if stopQueryErr := p.stopQuery(queryID); stopQueryErr != nil {
@@ -153,12 +153,12 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimesta
 			}
 			logger.Debugf("Query finished! got result: %v", out)
 			if res.FailureReason != "" {
-				if saveStateErr := p.State.Save(nextState); saveStateErr != nil {
+				if saveStateErr := p.State.Save(ctx, nextState); saveStateErr != nil {
 					logger.Errorf("failed to save state file: %v", saveStateErr)
 				}
 				return nil, errors.New(res.FailureReason)
 			}
-			if saveStateErr := p.State.Save(nextState); saveStateErr != nil {
+			if saveStateErr := p.State.Save(ctx, nextState); saveStateErr != nil {
 				return nil, fmt.Errorf("failed to save state file: %w", saveStateErr)
 			}
 			return res, nil

@@ -2,6 +2,7 @@ package checkawscloudwatchlogsinsights
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -10,15 +11,15 @@ import (
 )
 
 type storeIface interface {
-	Load() (*logState, error)
-	Save(s *logState) error
+	Load(ctx context.Context) (*logState, error)
+	Save(ctx context.Context, s *logState) error
 }
 
 type fileStore struct {
 	StateFile string
 }
 
-func (p *fileStore) Load() (*logState, error) {
+func (p *fileStore) Load(_ context.Context) (*logState, error) {
 	f, err := os.Open(p.StateFile)
 	if err != nil && os.IsNotExist(err) {
 		return nil, nil
@@ -36,7 +37,7 @@ func (p *fileStore) Load() (*logState, error) {
 	return &s, nil
 }
 
-func (p *fileStore) Save(s *logState) error {
+func (p *fileStore) Save(_ context.Context, s *logState) error {
 	logger.Debugf("Saving state to stateFile %s: %#v", p.StateFile, s)
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(s); err != nil {
