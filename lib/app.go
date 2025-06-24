@@ -39,6 +39,9 @@ type logOpts struct {
 	StateDir      string `short:"s" long:"state-dir" value-name:"DIR" description:"Dir to keep state files under" unquote:"false"`
 	ReturnMessage bool   `short:"r" long:"return" description:"Output matched log messages (Up to 10 messages)"`
 	Debug         bool   `long:"debug" description:"Enable debug log"`
+
+	Store         string `long:"store" value-name:"TYPE" description:"use specify store of state (dynamodb)"`
+	DynamoDBTable string `long:"dynamodb-table" value-name:"TABLE" description:"specify use state store a dynamodb table name"`
 }
 
 type cwIface interface {
@@ -60,13 +63,19 @@ func newCWLogsInsightsPlugin(ctx context.Context, opts *logOpts, args []string) 
 		return nil, err
 	}
 
-	stateDir := opts.StateDir
-	if opts.StateDir == "" {
-		workdir := pluginutil.PluginWorkDir()
-		stateDir = filepath.Join(workdir, "check-aws-cloudwatch-logs-insights")
+	var stateStore storeIface
+	if opts.Store == "dynamodb" {
+		stateStore = NewDynamodbStore(cfg, opts.DynamoDBTable, getStateName(args))
+	} else {
+		stateDir := opts.StateDir
+		if opts.StateDir == "" {
+			workdir := pluginutil.PluginWorkDir()
+			stateDir = filepath.Join(workdir, "check-aws-cloudwatch-logs-insights")
+		}
+		stateStore = &fileStore{StateFile: getStateFile(stateDir, args)}
 	}
 
-	p := &awsCWLogsInsightsPlugin{logOpts: opts, State: &fileStore{StateFile: getStateFile(stateDir, args)}}
+	p := &awsCWLogsInsightsPlugin{logOpts: opts, State: stateStore}
 	p.Service = cloudwatchlogs.NewFromConfig(cfg)
 
 	return p, nil
@@ -255,7 +264,7 @@ func (p *awsCWLogsInsightsPlugin) stopQuery(queryID *string) error {
 }
 
 type logState struct {
-	EndTime int64
+	EndTime int64 `dynamodbav:"endTime"`
 }
 
 func getStateFile(stateDir string, args []string) string {
@@ -276,6 +285,10 @@ func getStateFile(stateDir string, args []string) string {
 			),
 		),
 	)
+}
+
+func getStateName(args []string) string {
+	return fmt.Sprintf("%x", md5.Sum([]byte(strings.Join([]string{strings.Join(args, " ")}, " "))))
 }
 
 func (p *awsCWLogsInsightsPlugin) run(ctx context.Context) *checkers.Checker {
