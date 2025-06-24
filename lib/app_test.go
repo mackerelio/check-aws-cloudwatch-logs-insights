@@ -150,9 +150,9 @@ func Test_awsCWLogsInsightsPlugin_buildChecker(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &awsCWLogsInsightsPlugin{
-				Service:   tt.fields.Service,
-				StateFile: tt.fields.StateFile,
-				logOpts:   tt.fields.logOpts,
+				Service: tt.fields.Service,
+				State:   &fileStore{StateFile: tt.fields.StateFile},
+				logOpts: tt.fields.logOpts,
 			}
 			if got := p.buildChecker(tt.args.res); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("awsCWLogsInsightsPlugin.buildChecker() = %v, want %v", got, tt.want)
@@ -541,9 +541,9 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 				}
 			}
 			p := &awsCWLogsInsightsPlugin{
-				Service:   svc,
-				StateFile: filename,
-				logOpts:   tt.fields.logOpts,
+				Service: svc,
+				State:   &fileStore{StateFile: filename},
+				logOpts: tt.fields.logOpts,
 			}
 			got, err := p.searchLogs(context.TODO(), now, time.Millisecond)
 			if (err != nil) != tt.wantErr {
