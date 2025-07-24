@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -74,7 +75,8 @@ func NewDynamodbStore(awsCfg aws.Config, tableName, stateName string) *dynamodbS
 }
 
 type dynamodbLogState struct {
-	State string `dynamodbav:"State"`
+	State     string `dynamodbav:"State"`
+	UpdatedAt int64  `dynamodbav:"UpdatedAt"`
 
 	*logState
 }
@@ -111,7 +113,7 @@ func (d *dynamodbStore) Load(ctx context.Context) (*logState, error) {
 func (d *dynamodbStore) Save(ctx context.Context, s *logState) error {
 	logger.Debugf("Saving state to dynamodb %s: %#v", d.stateName, s)
 
-	av, err := attributevalue.MarshalMap(dynamodbLogState{State: d.stateName, logState: s})
+	av, err := attributevalue.MarshalMap(dynamodbLogState{State: d.stateName, logState: s, UpdatedAt: time.Now().Unix()})
 	if err != nil {
 		return err
 	}
