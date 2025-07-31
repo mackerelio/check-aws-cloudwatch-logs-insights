@@ -110,10 +110,12 @@ func (d *dynamodbStore) Load(ctx context.Context) (*logState, error) {
 	return &s, nil
 }
 
+var nowFunc = time.Now
+
 func (d *dynamodbStore) Save(ctx context.Context, s *logState) error {
 	logger.Debugf("Saving state to dynamodb %s: %#v", d.stateName, s)
 
-	av, err := attributevalue.MarshalMap(dynamodbLogState{State: d.stateName, logState: s, UpdatedAt: time.Now().Unix()})
+	av, err := attributevalue.MarshalMap(dynamodbLogState{State: d.stateName, logState: s, UpdatedAt: nowFunc().Unix()})
 	if err != nil {
 		return err
 	}

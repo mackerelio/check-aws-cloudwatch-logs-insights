@@ -2,8 +2,10 @@ package checkawscloudwatchlogsinsights
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
@@ -53,6 +55,9 @@ func TestDynamodbLogState(t *testing.T) {
 	})
 
 	t.Run("Save", func(t *testing.T) {
+		ts := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+		nowFunc = func() time.Time { return ts }
+
 		err := store.Save(context.Background(), &logState{EndTime: 234})
 		if err != nil {
 			t.Error(err)
@@ -60,8 +65,9 @@ func TestDynamodbLogState(t *testing.T) {
 
 		expected := &dynamodb.PutItemInput{
 			Item: map[string]types.AttributeValue{
-				"State":   &types.AttributeValueMemberS{Value: stateName},
-				"endTime": &types.AttributeValueMemberN{Value: "234"},
+				"State":     &types.AttributeValueMemberS{Value: stateName},
+				"endTime":   &types.AttributeValueMemberN{Value: "234"},
+				"UpdatedAt": &types.AttributeValueMemberN{Value: fmt.Sprint(ts.Unix())},
 			},
 			TableName: &tableName,
 		}
