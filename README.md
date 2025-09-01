@@ -64,12 +64,12 @@ check-aws-cloudwatch-logs-insights --filter='filter level = "error"' ... # will 
 check-aws-cloudwatch-logs-insights --filter='filter @logStream = "app-container" | filter @message =~ /ohno/' ... # will search logs which contains "ohno" and its logStream name contains "app-container"
 ```
 
-### state Stores
+### Type of state Stores
 
-- file (default)
+- File (default)
 - Amazon DynamoDB (`--store dynamodb --dynamodb-table <table-name>`)
 
-#### sample of Amazon DynamoDB Table Create Request
+#### Sample of Amazon DynamoDB Table Create Request
 
 ```sh
 aws dynamodb create-table \
