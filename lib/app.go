@@ -1,10 +1,8 @@
 package checkawscloudwatchlogsinsights
 
 import (
-	"bytes"
 	"context"
 	"crypto/md5"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -22,7 +20,6 @@ import (
 	"github.com/mackerelio/checkers"
 	"github.com/mackerelio/golib/logging"
 	"github.com/mackerelio/golib/pluginutil"
-	"github.com/natefinch/atomic"
 )
 
 var logger *logging.Logger
@@ -42,6 +39,9 @@ type logOpts struct {
 	StateDir      string `short:"s" long:"state-dir" value-name:"DIR" description:"Dir to keep state files under" unquote:"false"`
 	ReturnMessage bool   `short:"r" long:"return" description:"Output matched log messages (Up to 10 messages)"`
 	Debug         bool   `long:"debug" description:"Enable debug log"`
+
+	Store         string `long:"store" value-name:"TYPE" description:"use specify store of state (dynamodb)"`
+	DynamoDBTable string `long:"dynamodb-table" value-name:"TABLE" description:"specify use state store a Amazon DynamoDB table name"`
 }
 
 type cwIface interface {
@@ -51,8 +51,9 @@ type cwIface interface {
 }
 
 type awsCWLogsInsightsPlugin struct {
-	Service   cwIface
-	StateFile string
+	Service cwIface
+	State   storeIface
+
 	*logOpts
 }
 
@@ -62,14 +63,21 @@ func newCWLogsInsightsPlugin(ctx context.Context, opts *logOpts, args []string) 
 		return nil, err
 	}
 
-	p := &awsCWLogsInsightsPlugin{logOpts: opts}
+	var stateStore storeIface
+	if opts.Store == "dynamodb" {
+		stateStore = NewDynamodbStore(cfg, opts.DynamoDBTable, getStateName(args))
+	} else {
+		stateDir := opts.StateDir
+		if opts.StateDir == "" {
+			workdir := pluginutil.PluginWorkDir()
+			stateDir = filepath.Join(workdir, "check-aws-cloudwatch-logs-insights")
+		}
+		stateStore = &fileStore{StateFile: getStateFile(stateDir, args)}
+	}
+
+	p := &awsCWLogsInsightsPlugin{logOpts: opts, State: stateStore}
 	p.Service = cloudwatchlogs.NewFromConfig(cfg)
 
-	if p.StateDir == "" {
-		workdir := pluginutil.PluginWorkDir()
-		p.StateDir = filepath.Join(workdir, "check-aws-cloudwatch-logs-insights")
-	}
-	p.StateFile = getStateFile(p.StateDir, args)
 	return p, nil
 }
 
@@ -96,16 +104,16 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimesta
 	endTime := currentTimestamp.Add(-5 * time.Minute)
 	startTime := endTime.Add(-1 * time.Minute)
 
-	// If state file found, set startTime to last endTime
-	lastState, err := p.loadState()
-	if err != nil && !os.IsNotExist(err) {
+	// If state found, set startTime to last endTime
+	lastState, err := p.State.Load(ctx)
+	if err != nil {
 		return nil, fmt.Errorf("failed to load plugin state: %w", err)
 	}
 	if lastState != nil && lastState.EndTime != 0 {
 		lastEndTime := time.Unix(lastState.EndTime, 0)
 		// prevent too long duration
 		if lastEndTime.Add(90 * time.Minute).Before(endTime) {
-			logger.Warningf("ignoring stateFile since is's too old")
+			logger.Warningf("ignoring state since is's too old")
 		} else {
 			startTime = lastEndTime
 		}
@@ -127,8 +135,8 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimesta
 			err := ctx.Err()
 			// Cancel current query.
 			logger.Infof("execution cancelled. Will send StopQuery to stop the running query.")
-			if saveStateErr := p.saveState(nextState); saveStateErr != nil {
-				logger.Errorf("failed to save state file: %v", saveStateErr)
+			if saveStateErr := p.State.Save(ctx, nextState); saveStateErr != nil {
+				logger.Errorf("failed to save state: %v", saveStateErr)
 			}
 			if stopQueryErr := p.stopQuery(queryID); stopQueryErr != nil {
 				logger.Errorf("failed to stop the running query: %v", stopQueryErr)
@@ -154,13 +162,13 @@ func (p *awsCWLogsInsightsPlugin) searchLogs(ctx context.Context, currentTimesta
 			}
 			logger.Debugf("Query finished! got result: %v", out)
 			if res.FailureReason != "" {
-				if saveStateErr := p.saveState(nextState); saveStateErr != nil {
-					logger.Errorf("failed to save state file: %v", saveStateErr)
+				if saveStateErr := p.State.Save(ctx, nextState); saveStateErr != nil {
+					logger.Errorf("failed to save state: %v", saveStateErr)
 				}
 				return nil, errors.New(res.FailureReason)
 			}
-			if saveStateErr := p.saveState(nextState); saveStateErr != nil {
-				return nil, fmt.Errorf("failed to save state file: %w", saveStateErr)
+			if saveStateErr := p.State.Save(ctx, nextState); saveStateErr != nil {
+				return nil, fmt.Errorf("failed to save state: %w", saveStateErr)
 			}
 			return res, nil
 		}
@@ -256,7 +264,7 @@ func (p *awsCWLogsInsightsPlugin) stopQuery(queryID *string) error {
 }
 
 type logState struct {
-	EndTime int64
+	EndTime int64 `dynamodbav:"endTime"`
 }
 
 func getStateFile(stateDir string, args []string) string {
@@ -279,31 +287,8 @@ func getStateFile(stateDir string, args []string) string {
 	)
 }
 
-func (p *awsCWLogsInsightsPlugin) loadState() (*logState, error) {
-	f, err := os.Open(p.StateFile)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	var s logState
-	err = json.NewDecoder(f).Decode(&s)
-	if err != nil {
-		return nil, err
-	}
-	logger.Debugf("Loaded state from stateFile %s: %#v", p.StateFile, s)
-	return &s, nil
-}
-
-func (p *awsCWLogsInsightsPlugin) saveState(s *logState) error {
-	logger.Debugf("Saving state to stateFile %s: %#v", p.StateFile, s)
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(s); err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(p.StateFile), 0755); err != nil {
-		return err
-	}
-	return atomic.WriteFile(p.StateFile, &buf)
+func getStateName(args []string) string {
+	return fmt.Sprintf("%x", md5.Sum([]byte(strings.Join([]string{strings.Join(args, " ")}, " "))))
 }
 
 func (p *awsCWLogsInsightsPlugin) run(ctx context.Context) *checkers.Checker {
