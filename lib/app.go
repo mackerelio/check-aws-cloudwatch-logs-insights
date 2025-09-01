@@ -41,7 +41,7 @@ type logOpts struct {
 	Debug         bool   `long:"debug" description:"Enable debug log"`
 
 	Store         string `long:"store" value-name:"TYPE" description:"use specify store of state (dynamodb)"`
-	DynamoDBTable string `long:"dynamodb-table" value-name:"TABLE" description:"specify use state store a dynamodb table name"`
+	DynamoDBTable string `long:"dynamodb-table" value-name:"TABLE" description:"specify use state store a Amazon DynamoDB table name"`
 }
 
 type cwIface interface {

@@ -38,7 +38,7 @@ command = ["check-aws-cloudwatch-logs-insights", "--log-group-name", "/aws/lambd
   -s, --state-dir=DIR                                    Dir to keep state files under
   -r, --return                                           Output matched log messages (Up to 10 messages)
       --store=TYPE                                       use specify store of state (dynamodb)
-      --dynamodb-table=TABLE                             specify use state store a dynamodb table name
+      --dynamodb-table=TABLE                             specify use state store a Amazon DynamoDB table name
 ```
 
 The plugin uses the instance profile if possible, or you can configure `AWS_PROFILE` or `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` and `AWS_REGION` environment variables in the `env` settings.
