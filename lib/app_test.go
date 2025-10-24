@@ -521,7 +521,7 @@ func Test_awsCWLogsInsightsPlugin_searchLogs(t *testing.T) {
 			// prepare state
 			filename := filepath.Join(t.TempDir(), "check-aws-cloudwatch-logs-streams-test-searchLogs")
 			if tt.logState == nil {
-				os.Remove(filename)
+				os.Remove(filename) // nolint
 			} else {
 				b, _ := json.Marshal(tt.logState)
 				os.WriteFile(filename, b, 0644) // nolint
