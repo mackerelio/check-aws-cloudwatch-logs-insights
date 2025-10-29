@@ -32,7 +32,7 @@ func (p *fileStore) Load(_ context.Context) (*logState, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer f.Close() // nolint
 	var s logState
 	err = json.NewDecoder(f).Decode(&s)
 	if err != nil {
