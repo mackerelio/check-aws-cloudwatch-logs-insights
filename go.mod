@@ -2,7 +2,7 @@ module github.com/mackerelio/check-aws-cloudwatch-logs-insights
 
 go 1.22
 
-toolchain go1.24.0
+toolchain go1.26.3
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.36.5
